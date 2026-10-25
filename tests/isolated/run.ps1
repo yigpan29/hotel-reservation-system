@@ -5,6 +5,11 @@ Set-Location -LiteralPath $root
 $compose = @('compose', '-p', 'hotel-reservation-system-test', '--env-file', 'tests/isolated/empty.env', '-f', 'compose.test.yaml')
 $report = Join-Path $root ('.local/isolated/' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
 New-Item -ItemType Directory -Force -Path $report | Out-Null
+# Create bind-mount parents as the invoking user before Docker can create them as root.
+# CI must be able to write application.log beside the container-generated reports.
+foreach ($directory in @('.local/isolated-artifacts/backend', '.local/isolated-artifacts/e2e')) {
+    New-Item -ItemType Directory -Force -Path (Join-Path $root $directory) | Out-Null
+}
 function Invoke-Check {
     param([string]$Name, [string[]]$DockerArgs, [switch]$AllowFailure)
     $ErrorActionPreference = 'Continue'
