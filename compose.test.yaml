@@ -1,0 +1,64 @@
+name: hotel-reservation-system-test
+
+services:
+  postgres-test:
+    image: postgres:17@sha256:b8faeff7712663c2773a190181e1246e37e364b887611c04658c28b44e2408fe
+    environment:
+      POSTGRES_DB: hotel_test
+      POSTGRES_USER: hotel_test
+      POSTGRES_PASSWORD: isolated-test-only
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./tests/isolated:/checks:ro
+    networks: [isolated]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U hotel_test -d hotel_test]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  backend-check:
+    build:
+      context: .
+      dockerfile: tests/isolated/backend.Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: isolated
+      SPRING_CONFIG_LOCATION: classpath:/application-isolated.properties
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-test:5432/hotel_test
+      SPRING_DATASOURCE_USERNAME: hotel_test
+      SPRING_DATASOURCE_PASSWORD: isolated-test-only
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_DEVTOOLS_RESTART_ENABLED: 'false'
+    networks: [isolated]
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    command: [sh, /checks/backend-check.sh]
+
+  frontend-check:
+    build:
+      context: .
+      dockerfile: tests/isolated/frontend.Dockerfile
+    networks: [isolated]
+    command: [sh, /checks/frontend-check.sh]
+
+  flyway-check:
+    build:
+      context: .
+      dockerfile: tests/isolated/flyway.Dockerfile
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres-test:5432/hotel_test
+      FLYWAY_USER: hotel_test
+      FLYWAY_PASSWORD: isolated-test-only
+    networks: [isolated]
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    entrypoint: [sh, /checks/flyway-check.sh]
+    command: [hotel_test, info]
+
+networks:
+  isolated:
+    internal: true
