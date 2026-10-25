@@ -1,4 +1,3 @@
-import React from 'react'
 import AboutUs from '../components/AboutUs'
 import Header from '../components/Header'
 import HeaderBanner from '../components/HeaderBanner'

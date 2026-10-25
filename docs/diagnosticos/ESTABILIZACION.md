@@ -416,3 +416,25 @@ El estado de desarrollo se contrastó con el inventario inicial: mismas identida
 AI Development Log: se preparó un harness separado, se documentaron los fallos reales sin corregir silenciosamente la aplicación, se probaron creación/adopción de V1 y preservación de fixtures y se dejaron los recursos temporales identificados para revisión. Los cambios siguen sin commit, push, merge ni PR; el trabajo se detiene antes de las etapas funcionales.
 
 Verificación final ejecutada: `git diff --check` sin errores; comprobación de espacios finales sobre los 19 archivos nuevos sin incidencias; `.local/isolated/.../results.txt` ignorado por Git. Solo este diagnóstico figura modificado entre los archivos rastreados. Inspección Docker final: los tres contenedores de desarrollo conservan IDs, red, arranque y cero reinicios; únicamente queda PostgreSQL de pruebas healthy en la red interna, sin puertos ni volúmenes con nombre del proyecto de pruebas. Las referencias HEAD/base y el hash de la auditoría coinciden con el inicio de esta sesión.
+
+## Corrección mínima de TypeScript — 2026-10-25
+
+Se revisaron los reportes de `.local/isolated/20261025-132421/`, sin repetir la auditoría inicial. Se confirmó el estado de partida: 19 errores TypeScript, lint correcto, build bloqueado y advertencia Flyway/PostgreSQL 17. Se preservaron todos los archivos y cambios pendientes de la preparación previa. No se encontraron instrucciones `AGENTS.md` en el proyecto ni sus directorios ascendentes.
+
+Correcciones aplicadas en 19 archivos del frontend:
+
+- Se eliminaron los imports React como valor que no se usaban en `components/AboutUs.tsx`, `ButtonGroup.tsx`, `ButtonSecondary.tsx`, `CardHotelSlider.tsx`, `CardRoom.tsx`, `Dashboard.tsx`, `ErrorPage.tsx`, `HeaderAdmin.tsx`, `HeaderBanner.tsx`, `HotelSection.tsx`, `RoomDetailComponent.tsx`, `RoomDetailPlus.tsx`, `RoomSection.tsx`, `UserSection.tsx`, `SliderPlaces.tsx`, y `pages/About.tsx`, `RoomDetails.tsx`. En `SliderPlaces` se mantiene el import de `useState`. El proyecto ya usa `jsx: react-jsx`, que no necesita el import React para JSX.
+- `components/Search.tsx`: `useState<string[]>([])` expresa el tipo real de las sugerencias y evita la inferencia `never[]`. Se conserva el tipo `React.ChangeEvent` ya usado por el manejador.
+- `pages/AdminPanel.tsx`: se corrige el import a `../components/Sidebar`, igual al nombre real del archivo, compatible con el filesystem sensible a mayúsculas de Linux.
+
+Diff del frontend: **3 inserciones y 19 eliminaciones**. No se alteran JSX, estilos, textos, rutas, componentes, lógica de negocio, manifiestos ni lockfile. Tampoco se relajan TypeScript/ESLint ni se añaden supresiones o `any`.
+
+Comando ejecutado sobre la imagen reconstruida con las fuentes corregidas:
+
+```powershell
+docker compose -p hotel-reservation-system-test --env-file tests/isolated/empty.env -f compose.test.yaml run --rm --no-deps frontend-check
+```
+
+Evidencia: `.local/isolated/frontend-correction.log`. **TypeScript exit 0, ESLint exit 0, build exit 0**. Vite 5.4.0 transforma 65 módulos y genera el bundle de producción dentro del contenedor; no se escriben artefactos en las fuentes del host.
+
+Avisos no bloqueantes conservados: base Browserslist/caniuse-lite antigua y mensaje de resolución de sourcemap en `ProfileCircule.tsx:1` (contiene la directiva preexistente `use client`). El build termina correctamente; no se afirma una prueba visual ni de navegación. No se actualizan dependencias ajenas a este alcance para silenciar esos avisos. La compatibilidad Flyway y el ciclo completo del entorno se registran en la sección siguiente una vez ejecutados.

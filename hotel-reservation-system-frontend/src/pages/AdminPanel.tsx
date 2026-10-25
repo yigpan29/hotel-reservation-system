@@ -4,7 +4,7 @@ import RoomSection from '../components/RoomSection';
 import UserSection from '../components/UserSection';
 import Dashboard from '../components/Dashboard';
 import HeaderAdmin from '../components/HeaderAdmin';
-import Sidebar from '../components/SideBar';
+import Sidebar from '../components/Sidebar';
 
 
 export default function AdminPanel() {

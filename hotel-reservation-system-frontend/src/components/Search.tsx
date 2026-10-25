@@ -18,7 +18,7 @@ export default function Search() {
     const handleToggle = () => setIsOpen(!isOpen);
 
     const [query, setQuery] = useState("");
-    const [suggestions, setSuggestions] = useState([]);
+    const [suggestions, setSuggestions] = useState<string[]>([]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
