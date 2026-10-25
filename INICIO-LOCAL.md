@@ -78,8 +78,10 @@ local (por defecto `http://127.0.0.1:3000`).
 Hibernate usa `validate`, y `baseline-on-migrate=false` siempre. La aplicación
 nueva fallará si el esquema no corresponde; no lo adapta por Hibernate update.
 Cambiar credenciales en `.env` no cambia las de un volumen ya inicializado.
-No borrar el volumen para resolver discrepancias. No se ha desplegado esta
-versión ni se han ejecutado migraciones en los tres contenedores actuales.
+No borrar el volumen para resolver discrepancias. La instalación existente fue
+adoptada expresamente el 25/10/2026 mediante respaldo, comparación V1, baseline V1
+y V2; solo se recreó backend. Ver el registro en `docs/AI_DEVELOPMENT_LOG.md`.
+Esa autorización no habilita otras migraciones ni cargas de datos automáticas.
 
 ## Administrador de una instalación normal
 
