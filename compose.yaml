@@ -1,0 +1,56 @@
+name: hotel-reservation-system
+
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Defina POSTGRES_DB en .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Defina POSTGRES_USER en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD en .env}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    image: maven:3.9-eclipse-temurin-17
+    restart: unless-stopped
+    working_dir: /app
+    command: ["mvn", "spring-boot:run"]
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:?Defina POSTGRES_DB en .env}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?Defina POSTGRES_USER en .env}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD en .env}
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK: INFO
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-3000}:3000"
+    volumes:
+      - ./hotel-reservation-system-backend:/app
+      - maven-cache:/root/.m2
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    image: node:22-bookworm-slim
+    restart: unless-stopped
+    working_dir: /app
+    command: ["sh", "-c", "npm ci --no-audit --no-fund && npm run dev -- --host 0.0.0.0 --port 5173 --strictPort"]
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./hotel-reservation-system-frontend:/app
+      - frontend-dependencies:/app/node_modules
+      - npm-cache:/root/.npm
+
+volumes:
+  postgres-data:
+  maven-cache:
+  frontend-dependencies:
+  npm-cache:
