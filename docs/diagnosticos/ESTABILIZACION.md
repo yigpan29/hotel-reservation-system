@@ -639,3 +639,33 @@ ni merge automático. La validación local no se confunde con un resultado remot
 HU-01, HU-02 y HU-03 siguen excluidas: sin checkout/información reutilizable,
 medios de pago, calendario avanzado ni forecasting/gráficos de demanda. Payment
 y Review permanecen por compatibilidad, sin flujos bancarios ni reseñas nuevas.
+
+## Actualización posterior: errores web y adopción autorizada (25/10/2026)
+
+El desarrollador confirmó que recreó los contenedores y reportó fallos de CSRF y
+catálogo. Ambos se reprodujeron con HTTP 500 desde Vite y `ECONNREFUSED`: el backend
+abortaba Hibernate validate porque el esquema legacy no tenía `hotels.active`.
+No era un defecto del token CSRF ni de la serialización del catálogo.
+
+Tras autorización expresa adicional se respaldó `hotel-bd`, restauró la copia en
+PostgreSQL aislado y comparó exactamente con V1. Se probó V2 en la copia y luego
+se aplicaron baseline explícito V1 y V2 en desarrollo con Flyway 10.20.1, validando
+conservación de valores y secuencias. Solo se recreó backend. PostgreSQL mantiene
+su contenedor/volumen y cero reinicios; frontend y puertos no cambiaron.
+
+Desarrollo ahora arranca con Hibernate validate y responde, tanto en localhost
+como 127.0.0.1:5173: health/CSRF/catálogo/CSS HTTP 200. Catálogo `[]`: no había
+hoteles y no se insertaron datos de prueba. Las escrituras funcionales se probaron
+solo en aislamiento. La corrección anterior de Tailwind sigue vigente.
+
+Ejecución completa `.local/isolated/20261025-175332/`: 20 pruebas Java sin fallos,
+TypeScript/lint/build correctos, migraciones y controles negativos correctos,
+4 E2E correctos. Ampliación posterior, con imagen Playwright reconstruida:
+5 E2E correctos, capturas y ausencia de errores de ejecución comprobadas.
+
+CI inicial pasó las pruebas pero falló al escribir `application.log` por permisos
+del directorio creado por Docker como root. El harness ahora crea esos directorios
+antes de montar contenedores. El estado remoto actualizado está en el
+[PR #4](https://github.com/yigpan29/hotel-reservation-system/pull/4).
+Detalles, archivos y evidencias: [AI Development Log](../AI_DEVELOPMENT_LOG.md#continuación-y-adopción-autorizada--25102026).
+Esta sección actualiza el bloqueo de desarrollo descrito antes de la autorización.

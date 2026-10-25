@@ -134,6 +134,19 @@ debe declarar saneado un histórico únicamente por ejecutar Flyway. Los índice
 
 ## Prueba manual breve
 
+Después de la adopción autorizada del 25/10/2026, la instalación existente tiene
+baseline V1 y migración V2. Para arrancarla de nuevo basta `docker compose up -d`;
+no repetir baseline ni restaurar respaldos sobre ella. El catálogo de desarrollo
+está vacío: utilizar el procedimiento privado de administrador para crear
+inventario propio o abrir la demo aislada en `http://127.0.0.1:55173`.
+No se cargaron usuarios ni hoteles sintéticos en `hotel-bd`.
+
+Utilizar siempre el mismo origen al navegar (`http://localhost:5173` o
+`http://127.0.0.1:5173`); sus cookies de sesión son independientes. Si aparece un
+fallo al obtener CSRF, revisar primero `docker compose logs backend frontend` y
+`/api/health`: un backend que no arranca también produce errores de proxy en
+registro y catálogo. No deshabilitar CSRF ni cambiar Hibernate a `update`.
+
 1. Abrir la demo y registrar usuario; cerrar sesión y volver a entrar.
 2. Buscar `Hotel Demo 1`, consultar fechas futuras y elegir una habitación.
 3. Revisar tarifa/total y confirmar; ver el identificador en Mis reservas.

@@ -189,3 +189,79 @@ de seguridad de producción, despliegue HTTPS, rate limiting, recuperación por
 correo, pruebas de múltiples navegadores, ni migración de datos reales de
 desarrollo. Las pruebas de navegador se ejecutan con Chromium; los datos demo son
 efímeros. Las credenciales públicas de prueba no deben reutilizarse en producción.
+
+## Continuación y adopción autorizada — 25/10/2026
+
+Se retomó `2840255` en `chore/configuracion-inicial`, conservando los commits y el
+PR [#4](https://github.com/yigpan29/hotel-reservation-system/pull/4), hacia `base`.
+No se repitió ni modificó la auditoría histórica.
+
+### Errores reproducidos
+
+GET de desarrollo a `/api/auth/csrf` y `/api/hotels`: HTTP 500 desde Vite,
+con `ECONNREFUSED` hacia `backend:3000`. Spring Boot no aceptaba tráfico por
+`Schema-validation: missing column [active] in table [hotels]`. Una consulta READ
+ONLY confirmó 34 columnas legacy, sin historial Flyway, hoteles y usuarios vacíos.
+El proxy ya apuntaba correctamente a `http://backend:3000`. La causa común era el
+esquema pendiente de adopción; no un rechazo CSRF ni serialización de entidades.
+El cliente ahora incluye el estado HTTP si no puede obtener CSRF y no envía login
+en ese caso. CSRF sigue habilitado, con sesión HttpOnly, SameSite=Lax y token en
+header; no requiere CORS porque React usa `/api` mediante el proxy del mismo origen.
+Usar un único origen al navegar: localhost y 127.0.0.1 tienen cookies independientes.
+
+Tailwind conserva la corrección previa: `App.css` usa `@apply` sin el wrapper
+`@layer components` procesado sin su directiva. CSS HTTP 200 y build satisfactorio.
+
+### Intervención aprobada expresamente en esta conversación
+
+El desarrollador autorizó respaldo, comparación V1, baseline V1, migración V2 y
+recreación exclusiva del backend. Operaciones realmente ejecutadas:
+
+1. Respaldo custom completo de `hotel-bd` en
+   `.local/private-development-adoption/hotel-bd-before.dump`, ignorado por Git.
+   SHA256: `3FF73D20494C1F1CE010841078E4E1E1818F6F8356C71B5A9193317BD264B955`.
+2. Restauración en `hotel_development_review` del PostgreSQL temporal y comparación
+   normalizada contra `hotel_v1_review`, creada desde V1: igualdad exacta del DDL.
+3. Baseline explícito 1, V2 y validate sobre la copia restaurada; valores originales
+   conservados. Después se ejecutó la operación autorizada sobre desarrollo con
+   Flyway 10.20.1. No se ejecutó V1 sobre tablas existentes.
+4. Valores originales de las seis tablas y secuencias antes/después: iguales.
+   No se crearon usuarios, hoteles ni reservas sintéticas en desarrollo.
+5. Se recreó solo `backend`; Hibernate validate y arranque correctos. PostgreSQL
+   conserva ID `7f1f054223d8`, volumen `hotel-reservation-system_postgres-data` y cero
+   reinicios. Frontend no recreado; puertos 3000/5173/5432 conservados.
+
+Desarrollo tiene V1 BASELINE y V2 SQL, ambas success. GET mediante localhost:5173
+y 127.0.0.1:5173: health 200 UP, csrf 200, hoteles 200 `[]`, CSS 200. El catálogo
+vacío corresponde a los datos existentes; no se simula inventario. Los flujos de
+registro/login/reservas con escrituras se comprobaron únicamente en PostgreSQL
+aislado. Esta actualización sustituye el bloqueo operativo anterior a la autorización.
+Respaldo, valores y copias de desarrollo son privados; no se suben como artifacts.
+
+### Validaciones y CI
+
+`powershell -NoProfile -ExecutionPolicy Bypass -File tests/isolated/run.ps1` pasó:
+evidencia `.local/isolated/20261025-175332/`. Maven clean verify: 19 pruebas; prueba
+adicional de compatibilidad Flyway: 1. Cero fallos, errores u omitidas. TypeScript,
+ESLint y build: salida 0. Esquema limpio, baseline, V2, repetición, conservación de
+valores/identidades y rechazo de desarrollo comprobados. Códigos negativos
+esperados: 1 sin baseline y 64 para URLs prohibidas, verificados también por mensaje.
+
+Cuatro E2E pasaron con el harness completo. Después se reconstruyó el runner y
+pasaron **cinco E2E** (`.local/continuation-visual-current.log`, reportes en
+`.local/isolated-artifacts/e2e/continuation-visual-current/`): flujo de cliente,
+administración, móvil, seguridad de sesión y fallo CSRF controlado. Chromium
+comprobó registro inválido/duplicado, rechazo sin token, login incorrecto, identidad,
+cookies, sesión tras recarga y logout 204 seguido de 401. El fallo CSRF 503 impide
+enviar login. Se comprueba ausencia de errores de ejecución y se guardan capturas
+de inicio, registro, login, reservas, administración, detalle y móvil.
+
+CI remoto [40230529042](https://github.com/yigpan29/hotel-reservation-system/actions/runs/40230529042)
+pasó frontend, migraciones, 20 pruebas Java y los tres E2E de aquel commit; falló
+después al capturar logs: `application.log: Permission denied`. Docker creó el
+directorio padre como root en Ubuntu. Ahora `run.ps1` crea los directorios con el
+usuario invocante antes de los montajes. Se conservan la propagación de errores y
+los artifacts; no se declara verde aquella ejecución. El resultado remoto vigente
+se consulta en los checks del PR #4.
+
+No se implementaron HU-01/HU-02/HU-03 ni pagos, ni se hizo merge o se modificó `base`.

@@ -1,10 +1,65 @@
 import { test, expect } from '/work/node_modules/@playwright/test/index.mjs'
 
+let runtimeErrors: string[] = []
+test.beforeEach(async ({ page }) => {
+  runtimeErrors = []
+  page.on('pageerror', error => runtimeErrors.push(error.message))
+})
+test.afterEach(async ({ page }) => {
+  await page.screenshot({ path: test.info().outputPath('final-screen.png'), fullPage: true })
+  expect(runtimeErrors, 'Errores de ejecución de React/navegador').toEqual([])
+})
+
 function future(days: number) { const d = new Date(); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10) }
+test('navegador: CSRF, validaciones, duplicados, identidad y cierre de sesión', async ({ page, context }) => {
+  await page.goto('/register')
+  await page.getByLabel('Usuario', { exact: true }).fill('x')
+  await page.getByRole('button', { name: 'Registrarme' }).click()
+  await expect(page.locator('input[name="username"]:invalid')).toBeVisible()
+  await page.screenshot({ path: test.info().outputPath('register-validation.png'), fullPage: true })
+  const result = await page.evaluate(async () => {
+    const username = 'security-' + Date.now()
+    const account = { username, email: username + '@example.invalid', password: 'Synthetic-security-123' }
+    async function send(path: string, body: object, protectedRequest = true) {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (protectedRequest) {
+        const response = await fetch('/api/auth/csrf', { credentials: 'include' })
+        if (!response.ok) throw new Error('CSRF HTTP ' + response.status)
+        const csrf = await response.json()
+        headers[csrf.headerName] = csrf.token
+      }
+      return fetch('/api/auth/' + path, { method: 'POST', credentials: 'include', headers, body: JSON.stringify(body) })
+    }
+    const missingCsrf = (await send('register', account, false)).status
+    const invalid = (await send('register', { ...account, email: 'invalid', password: 'short' })).status
+    const registered = (await send('register', account)).status
+    const duplicate = (await send('register', account)).status
+    const wrongLogin = (await send('login', { username, password: 'incorrect' })).status
+    const login = (await send('login', account)).status
+    const meResponse = await fetch('/api/auth/me', { credentials: 'include' })
+    const identity = await meResponse.json()
+    return { missingCsrf, invalid, registered, duplicate, wrongLogin, login, username, identity }
+  })
+  expect(result).toMatchObject({ missingCsrf: 403, invalid: 400, registered: 201, duplicate: 409, wrongLogin: 401, login: 200 })
+  expect(result.identity).toMatchObject({ username: result.username, role: 'USER' })
+  expect((await context.cookies()).find(cookie => cookie.name === 'JSESSIONID')).toMatchObject({ httpOnly: true, sameSite: 'Lax', secure: false })
+  await page.goto('/my-reservations')
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Mis reservas' })).toBeVisible()
+  const loggedOut = await page.evaluate(async () => {
+    const csrf = await (await fetch('/api/auth/csrf')).json()
+    const logout = await fetch('/api/auth/logout', { method: 'POST', headers: { [csrf.headerName]: csrf.token } })
+    return { logout: logout.status, me: (await fetch('/api/auth/me')).status, reservations: (await fetch('/api/reservations/me')).status }
+  })
+  expect(loggedOut).toEqual({ logout: 204, me: 401, reservations: 401 })
+})
+
 test('cliente: registro, login, búsqueda, reserva, historial, cancelación y permisos', async ({ page }) => {
   const name = 'guest-' + Date.now()
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Nuestros hoteles' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Ver habitaciones' }).first()).toBeVisible()
+  await page.screenshot({ path: test.info().outputPath('home-catalog.png'), fullPage: true })
   await page.getByRole('link', { name: 'Registrarse', exact: true }).first().click()
   await page.getByLabel('Usuario', { exact: true }).fill(name)
   await page.getByLabel('Email', { exact: true }).fill(name + '@example.invalid')
@@ -17,6 +72,7 @@ test('cliente: registro, login, búsqueda, reserva, historial, cancelación y pe
   await page.getByLabel('Contraseña', { exact: true }).fill('wrong-password')
   await page.getByRole('button', { name: 'Entrar' }).click()
   await expect(page.getByRole('alert')).toContainText('incorrectos')
+  await page.screenshot({ path: test.info().outputPath('login-error.png'), fullPage: true })
   await page.getByLabel('Contraseña', { exact: true }).fill('Synthetic-guest-123')
   await page.getByRole('button', { name: 'Entrar' }).click()
   await expect(page.getByRole('heading', { name: 'Mis reservas' })).toBeVisible()
@@ -41,6 +97,7 @@ test('cliente: registro, login, búsqueda, reserva, historial, cancelación y pe
   await expect(page.getByText('CONFIRMED', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: /Cancelar reserva #/ }).click()
   await expect(page.getByText('CANCELLED', { exact: true })).toBeVisible()
+  await page.screenshot({ path: test.info().outputPath('my-reservations.png'), fullPage: true })
   await page.reload()
   await expect(page.getByText('CANCELLED', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Cerrar sesión' }).click()
@@ -82,6 +139,7 @@ test('administrador: crear y editar inventario visible al público y filtrar res
   await page.getByRole('combobox', { name: 'Estado', exact: true }).selectOption('CANCELLED')
   await page.getByRole('button', { name: 'Filtrar reservas' }).click()
   await expect(page.getByRole('form', { name: 'Filtrar reservas' })).toBeVisible()
+  await page.screenshot({ path: test.info().outputPath('admin-reservations.png'), fullPage: true })
   await page.goto('/products?q=' + encodeURIComponent(hotelName))
   await page.getByRole('link', { name: 'Ver habitaciones' }).click()
   await expect(page.getByRole('heading', { name: /Habitación E2E-1/ })).toBeVisible()
@@ -97,4 +155,17 @@ test('móvil: navegación y sesión accesibles sin desbordamiento', async ({ pag
   await expect(page.getByRole('heading', { name: 'Encuentra tu hotel' })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await page.screenshot({ path: test.info().outputPath('mobile-catalog.png'), fullPage: true })
+})
+
+test('interfaz: informa un fallo CSRF sin enviar credenciales ni simular una sesión', async ({ page }) => {
+  let loginRequests = 0
+  page.on('request', request => { if (request.url().endsWith('/api/auth/login')) loginRequests++ })
+  await page.route('**/api/auth/csrf', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"Synthetic outage"}' }))
+  await page.goto('/login')
+  await page.getByLabel('Usuario', { exact: true }).fill('synthetic-unavailable')
+  await page.getByLabel('Contraseña', { exact: true }).fill('Synthetic-unavailable-123')
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await expect(page.getByRole('alert')).toContainText('HTTP 503')
+  expect(loginRequests).toBe(0)
+  await expect(page.getByRole('heading', { name: 'Iniciar sesión' })).toBeVisible()
 })

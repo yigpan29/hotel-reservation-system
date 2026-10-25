@@ -7,7 +7,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   if (options.body) headers.set('Content-Type', 'application/json')
   if (options.method && !['GET', 'HEAD'].includes(options.method.toUpperCase())) {
     const tokenResponse = await fetch(base + '/auth/csrf', { credentials: 'include' })
-    if (!tokenResponse.ok) throw new Error('No se pudo obtener protección CSRF')
+    if (!tokenResponse.ok) throw new ApiError(tokenResponse.status, 'No se pudo obtener protección CSRF (HTTP ' + tokenResponse.status + '). Comprueba que el backend esté disponible.')
     const csrf: { token: string; headerName: string } = await tokenResponse.json()
     headers.set(csrf.headerName, csrf.token)
   }
