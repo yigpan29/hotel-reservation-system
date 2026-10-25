@@ -265,3 +265,18 @@ los artifacts; no se declara verde aquella ejecución. El resultado remoto vigen
 se consulta en los checks del PR #4.
 
 No se implementaron HU-01/HU-02/HU-03 ni pagos, ni se hizo merge o se modificó `base`.
+
+### Cierre de comprobaciones remotas y de desarrollo
+
+La ejecución remota [40243412641](https://github.com/yigpan29/hotel-reservation-system/actions/runs/40243412641)
+del commit `f0430c1` terminó **success**: frontend e integración, incluida la
+captura de logs corregida. Esto verifica el arreglo de permisos en Ubuntu real.
+
+Una prueba adicional Chromium sobre las pantallas reales de desarrollo pasó
+(`.local/development-browser-readonly.log`, 1 prueba). Comprobó inicio vacío,
+registro, login, búsqueda y redirecciones de rutas protegidas; health/CSRF/catálogo,
+cookie de sesión y ausencia de HTTP 5xx/errores de ejecución. Interceptó y bloqueó
+cualquier método distinto de GET/HEAD, verificando cero intentos de escritura.
+Capturas privadas en `.local/private-development-adoption/browser/`.
+Se revisaron visualmente capturas de catálogo, registro, administración y móvil;
+se conservan navegación, tarjetas y colores naranjas.

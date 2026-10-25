@@ -74,5 +74,8 @@ negativos concretos se aceptan después de comprobar mensaje/código.
 inicial. Las migraciones activas están en `backend/src/main/resources/db/migration`
 (subproyecto `hotel-reservation-system-backend`). `flyway-profile.xml` y
 `prepare-backend.awk` se conservan como referencia de la comprobación anterior;
-las imágenes actuales no los usan. No se afirma una adopción de desarrollo ni
-una restauración de datos reales. La auditoría histórica permanece intacta.
+las imágenes actuales no los usan. El harness no interviene sobre desarrollo.
+La adopción posterior de desarrollo, autorizada expresamente tras el diagnóstico
+web, se documenta en [AI Development Log](../../docs/AI_DEVELOPMENT_LOG.md).
+La auditoría histórica permanece intacta. Los respaldos privados de esa operación
+no pertenecen a los artifacts del harness ni se publican en GitHub.
