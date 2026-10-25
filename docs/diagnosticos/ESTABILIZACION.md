@@ -4,7 +4,7 @@ Fecha: 2026-10-25. Rama de trabajo: `chore/configuracion-inicial`.
 
 Este documento registra evidencia nueva. No modifica ni sustituye `docs/auditorias/AUDITORIA_INICIAL.md`.
 
-**Actualización vigente: entorno aislado y pruebas iniciales del 2026-10-25 al final del documento.** Los bloqueos y aprobaciones pendientes descritos en las secciones anteriores se conservan como trazabilidad histórica. El desarrollador autorizó preparar el entorno aislado y ejecutar las verificaciones iniciales; los cambios funcionales y cualquier intervención sobre desarrollo siguen fuera de alcance.
+**Actualización vigente: corrección de base técnica y validación completa del 2026-10-25 al final del documento.** Los fallos y aprobaciones pendientes de las secciones anteriores se conservan como trazabilidad histórica. El desarrollador autorizó corregir TypeScript, resolver la compatibilidad Flyway, verificar y organizar commits locales. Los cambios funcionales y cualquier migración/escritura sobre desarrollo siguen fuera de alcance.
 
 ## Estado inicial y alcance completado
 
@@ -438,3 +438,90 @@ docker compose -p hotel-reservation-system-test --env-file tests/isolated/empty.
 Evidencia: `.local/isolated/frontend-correction.log`. **TypeScript exit 0, ESLint exit 0, build exit 0**. Vite 5.4.0 transforma 65 módulos y genera el bundle de producción dentro del contenedor; no se escriben artefactos en las fuentes del host.
 
 Avisos no bloqueantes conservados: base Browserslist/caniuse-lite antigua y mensaje de resolución de sourcemap en `ProfileCircule.tsx:1` (contiene la directiva preexistente `use client`). El build termina correctamente; no se afirma una prueba visual ni de navegación. No se actualizan dependencias ajenas a este alcance para silenciar esos avisos. La compatibilidad Flyway y el ciclo completo del entorno se registran en la sección siguiente una vez ejecutados.
+
+## Compatibilidad Flyway y validación completa — 2026-10-25
+
+### Selección de versión y comprobación con Spring Boot
+
+Antes de modificar dependencias se comprobaron el POM principal, el runner y las fuentes oficiales de las versiones involucradas. El backend usa Spring Boot **3.3.2** y Java 17. Su BOM administra Flyway **10.10.0**, incluido el módulo PostgreSQL y el plugin Maven; no había dependencias Flyway activas en el POM de la aplicación.
+
+Se selecciona **Flyway 10.20.1**, release estable de la misma versión mayor 10. El soporte PostgreSQL 17 se incorporó en 10.20.0 y 10.20.1 corrige problemas posteriores de imports y detección de ubicaciones. Es una actualización acotada para PostgreSQL 17, no una afirmación de que sea la versión más reciente ni una actualización general de dependencias. El código PostgreSQL de 10.20.1 declara 17 como versión mayor soportada. Java 17 sigue siendo compatible. Se mantienen **JDBC 42.7.3**, Spring Boot, Hibernate, React, Vite y demás versiones originales.
+
+Fuentes primarias: [BOM de Spring Boot 3.3.2](https://github.com/spring-projects/spring-boot/blob/v3.3.2/spring-boot-project/spring-boot-dependencies/build.gradle), [autoconfiguración Flyway de Boot 3.3.2](https://github.com/spring-projects/spring-boot/blob/v3.3.2/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration.java), [notas de Flyway 10.20.0/10.20.1](https://documentation.red-gate.com/flyway/release-notes-and-older-versions/release-notes-for-flyway-engine) y [soporte PostgreSQL en 10.20.1](https://github.com/flyway/flyway/blob/flyway-10.20.1/flyway-database/flyway-database-postgresql/src/main/java/org/flywaydb/database/postgresql/PostgreSQLDatabase.java). La compatibilidad con el proyecto se confirma además mediante la prueba ejecutada descrita abajo, sin inferirla solo por conservar la versión mayor.
+
+`flyway-pom.xml` alinea plugin y módulo PostgreSQL mediante `flyway.version=10.20.1`. `flyway-profile.xml` añade core y módulo PostgreSQL con scope **test**, usando la propiedad de gestión de dependencias heredada de Boot. `prepare-backend.awk` inserta ese perfil únicamente en la copia de `/work/pom.xml` de la imagen, sin modificar el POM original ni activar Flyway en desarrollo.
+
+La nueva prueba `IsolatedFlywayCompatibilityTests` carga la aplicación real con Boot 3.3.2 y la autoconfiguración Flyway habilitada, utiliza exactamente la misma V1 del runner, obtiene el bean Flyway y comprueba versión de core cargada, ausencia de migraciones pendientes, validate, PostgreSQL 17 y URL/base exclusivas de pruebas. También comprueba `baselineOnMigrate=false` y `cleanDisabled=true`. El árbol de dependencias ejecutado muestra **flyway-core y flyway-database-postgresql 10.20.1:test**. La integración ensayada pasó sin incompatibilidades binarias ni la antigua advertencia PostgreSQL 17; no se activa aún el mecanismo en el backend de desarrollo.
+
+### Archivos de este incremento
+
+Además de los 19 archivos frontend enumerados en la sección anterior y de incorporar los 19 archivos nuevos de la preparación previa, se modifican:
+
+- `tests/isolated/flyway-pom.xml`, `flyway.Dockerfile`: versión y descarga explícita de Flyway 10.20.1.
+- `tests/isolated/backend.Dockerfile`, `backend-check.sh`: preparación del perfil en la copia de POM y ejecución separada de la prueba original y la nueva prueba de integración.
+- `tests/isolated/flyway-check.sh`: rechazo explícito de datasource fuera de la lista permitida, antes de Maven.
+- `tests/isolated/run.ps1`: comprueba código **64** y marcador `ISOLATED_DATASOURCE_REJECTED` en ambos rechazos, y falla si reaparece una advertencia de soporte Flyway/PostgreSQL.
+- `tests/isolated/README.md`, `.gitattributes`: versión, límites del ensayo, comandos y LF para el script awk.
+- `docs/diagnosticos/ESTABILIZACION.md`: evidencia de esta sesión, conservando íntegro el contenido previo salvo el indicador de actualización vigente.
+
+Cuatro archivos nuevos respecto a la preparación anterior: `tests/isolated/flyway-profile.xml`, `prepare-backend.awk`, `IsolatedFlywayCompatibilityTests.java`, `maven-settings.xml`. Este último fija Maven Central como mirror solo dentro de las imágenes; todos los artefactos del ensayo están publicados allí. La primera construcción sin mirror quedó sin progreso visible y se interrumpió; se conserva su log, sin declararla exitosa ni atribuir a la aplicación esa espera. La construcción final con mirror terminó con exit 0. No hubo instalaciones ni ajustes Maven globales.
+
+El alcance total de la entrega respecto a `f89859c` es **23 archivos nuevos**, **19 archivos frontend modificados** y este diagnóstico. El POM/fuentes/configuración backend de desarrollo, `compose.yaml`, la auditoría, manifiestos/lockfile, TypeScript y ESLint config siguen intactos.
+
+### Comandos y resultados ejecutados
+
+Preparación final y ciclo de pruebas:
+
+```powershell
+docker compose -p hotel-reservation-system-test --env-file tests/isolated/empty.env -f compose.test.yaml build
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/isolated/run.ps1 -SkipBuild
+```
+
+`-SkipBuild` se usó inmediatamente después de reconstruir las tres imágenes con las fuentes actuales. No se usa para eludir esa reconstrucción. Logs de construcción: `.local/isolated/correction-images-central.log`, **exit 0**. Ejecución completa desde PostgreSQL temporal vacío: **`.local/isolated/20261025-134344/`**, proceso final **exit 0**. El directorio conserva cada log, `results.txt` y la captura final reducida de desarrollo sin variables privadas. Los reportes fallidos anteriores se conservan, sin sobrescribirlos.
+
+| Comprobación | Resultado real |
+|---|---|
+| Compose, aserciones de configuración y PostgreSQL healthy | Exit 0 |
+| Restauración DDL de referencia y fixtures | Exit 0; seis tablas y una fila sintética por tabla solo en `hotel_adopt` |
+| V1 desde cero con Flyway 10.20.1 | Exit 0; historial SQL 1 |
+| Segunda ejecución de migrate | Exit 0; ninguna migración adicional |
+| Migrate sobre esquema existente sin baseline autorizado | Exit 1 esperado; se verificó el mensaje concreto de esquema no vacío sin historial |
+| Baseline explícito 1 y posterior migrate | Exit 0; historial BASELINE 1, sin volver a ejecutar V1 |
+| Validate en base nueva y adoptada | Exit 0 en ambas |
+| Igualdad DDL y conservación de filas, IDs y secuencias | Exit 0; `SCHEMA_EQUAL_AND_FIXTURES_PRESERVED` |
+| URL `postgres:5432/hotel-bd` en backend y Flyway | Exit **64** esperado en ambos y marcador explícito; rechazo anterior a Maven |
+| Backend `mvn -o -B -ntp clean verify` | Exit 0; 36 fuentes recompiladas, JAR construido, prueba original: 1 ejecutada, 0 fallos/errores/omitidas |
+| `mvn -o -B -ntp -Pisolated-flyway dependency:tree -Dincludes=org.flywaydb:*` | Exit 0; core/módulo PostgreSQL 10.20.1, scope test |
+| `mvn -o -B -ntp -Pisolated-flyway -Dtest=IsolatedFlywayCompatibilityTests test` | Exit 0; una prueba de autoconfiguración real, 0 fallos/errores/omitidas |
+| Frontend `tsc -b` / `npm run lint` / `npm run build` | **0 / 0 / 0**; bundle Vite generado |
+| Advertencia de soporte PostgreSQL/Flyway | Ausente en los logs finales; el runner rechaza su reaparición |
+
+Son **dos pruebas Java ejecutadas en invocaciones distintas**, ambas correctas. No se afirma que el proyecto disponga ahora de una suite funcional amplia. Los rechazos esperados (1 y 64) son controles negativos, no fallos ocultados del conjunto.
+
+El DDL sigue siendo idéntico al exportado: seis tablas, 34 columnas, 14 restricciones, ocho índices y seis secuencias identity, conservando `availbility`. Los seis fixtures y posiciones de secuencia permanecen iguales antes/después de baseline/migrate. No se altera ninguna sentencia de V1 ni se añade V2.
+
+Al incorporar los SQL nuevos al índice, `git diff --cached --check` detectó dos líneas vacías sobrantes al final de `legacy.sql` y V1, no visibles en el diff anterior de archivos rastreados. Se eliminaron únicamente esas líneas, se reconstruyeron las dos imágenes afectadas y se ejecutó **validate otra vez en ambas bases**: exit 0, checksums válidos. Se repitió la comparación de DDL/fixtures/secuencias: exit 0. Evidencia adicional en `correction-images-whitespace.log` y `final-validate-*.log` / `final-schema-comparison.log` del directorio final. La normalización no cambió el esquema ni invalidó el historial de V1.
+
+### Confirmación de aislamiento y límites pendientes
+
+Se contrastaron IDs, fechas de arranque, reinicios, montajes, puertos y redes de los tres contenedores de desarrollo con `.local/isolated-before-correction/development-state.json`: **sin diferencias**, incluidos cero reinicios y publicaciones `127.0.0.1:3000`, `:5173`, `:5432`. No se ejecutaron migraciones, DDL/DML ni nuevas consultas SQL contra desarrollo durante esta corrección. Los cambios frontend autorizados pueden ser observados por Vite mediante su bind habitual; no se reinició ni recreó su contenedor.
+
+Para repetir desde cero solo se retiró el PostgreSQL temporal previo y su red, tras verificar nombre, etiqueta del proyecto, bind `/checks` de solo lectura y tmpfs. No se eliminaron archivos/datos del desarrollador ni volúmenes de desarrollo; no se usaron `prune`, `down -v` ni limpieza global. La instancia final de pruebas se deja healthy para revisión, con sus tres bases en tmpfs, sin puertos publicados, sin volúmenes con nombre y en la red interna propia. Los runners efímeros se retiraron mediante `--rm`.
+
+Las defensas comprobadas son URL exacta, perfil/configuración explícitos sin fallback a properties de desarrollo, usuario exclusivo, ausencia de credenciales reales/volúmenes de desarrollo, y red interna separada. El rechazo explícito se ensayó en los dos runners; no se confunde con un fallo de acceso al Engine. No se pretende impedir que una persona con control de Docker eluda deliberadamente el harness.
+
+**Base técnica validada para este alcance.** No quedan fallos bloqueantes de compilación, migraciones ensayadas o compatibilidad Flyway/PostgreSQL. Permanecen como avisos no bloqueantes Browserslist antiguo, sourcemap de `ProfileCircule` y el aviso JVM de class sharing durante Mockito. Se conservan en logs. No se hizo navegación visual, E2E, pruebas de reservas/concurrencia ni un respaldo/restauración de datos reales; tampoco se ha adoptado desarrollo con Flyway. Esos límites no se declaran completados.
+
+Recomendación: tras revisión, comenzar la siguiente etapa incremental del plan dentro del entorno aislado. Cualquier adopción de desarrollo requiere autorización específica, respaldo/restauración y nueva comprobación de equivalencia. No se implementaron autenticación, autorización, CRUD adicional, reservas ni HU-01/02/03.
+
+Comprobaciones previas a organizar commits: `git diff --check` correcto; `.env`, logs, reportes y cachés ignorados; ningún artefacto de ejecución entre los archivos a incorporar; revisión de diffs y búsqueda de patrones de claves privadas/tokens sin coincidencias. Solo se incorporan credenciales públicas desechables del harness y fixtures sintéticos ya documentados, sin secretos reales. Auditoría conservada con hash `75297166f4a8d198247969fe1f3441d34c371905`; `base` permanece en `2f82bdb96836991b1051ebaa918859c9f5a3dc6c`.
+
+### Organización de Git y punto de revisión
+
+Se preservaron `b6b58e0` y `f89859c`, así como el contenido pendiente anterior. Se organizó la entrega sin sobrescribir el workspace, usando en el índice las versiones conservadas de documentación/configuración para separar responsabilidades:
+
+1. **`53cc633` — `test: incorporar infraestructura de pruebas aisladas`**: preparación previa, DDL, runners y diagnóstico histórico de resultados iniciales, incluidos sus fallos reales.
+2. **`1d81258` — `fix(frontend): corregir los 19 errores de TypeScript`**: correcciones mínimas y evidencia TypeScript/lint/build en el diagnóstico.
+3. **`test: validar Flyway 10.20.1 con PostgreSQL 17 y Spring Boot`**: versión alineada, prueba real de autoconfiguración, resolución Maven confinada a las imágenes, controles negativos explícitos, documentación y resultados finales de esta sección. El hash de este commit se comunica al cerrar la entrega.
+
+No se hizo fetch, push, PR, merge ni cambios en `base`. Esta entrega valida exclusivamente la base técnica y se detiene para revisión antes de implementar funcionalidades de negocio.

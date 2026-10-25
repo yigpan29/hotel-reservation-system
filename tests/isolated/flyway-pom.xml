@@ -1,15 +1,16 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>app.mnhotel.isolated</groupId><artifactId>schema-check</artifactId><version>1</version>
+  <properties><flyway.version>10.20.1</flyway.version></properties>
   <build><plugins><plugin>
-    <groupId>org.flywaydb</groupId><artifactId>flyway-maven-plugin</artifactId><version>10.10.0</version>
+    <groupId>org.flywaydb</groupId><artifactId>flyway-maven-plugin</artifactId><version>${flyway.version}</version>
     <configuration>
       <url>${env.FLYWAY_URL}</url><user>${env.FLYWAY_USER}</user><password>${env.FLYWAY_PASSWORD}</password>
       <locations><location>filesystem:/checks/migrations</location></locations>
       <baselineOnMigrate>false</baselineOnMigrate><cleanDisabled>true</cleanDisabled>
     </configuration>
     <dependencies>
-      <dependency><groupId>org.flywaydb</groupId><artifactId>flyway-database-postgresql</artifactId><version>10.10.0</version></dependency>
+      <dependency><groupId>org.flywaydb</groupId><artifactId>flyway-database-postgresql</artifactId><version>${flyway.version}</version></dependency>
       <dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId><version>42.7.3</version></dependency>
     </dependencies>
   </plugin></plugins></build>

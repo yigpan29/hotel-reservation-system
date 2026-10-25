@@ -54,10 +54,11 @@ foreach ($db in @('hotel_test', 'hotel_adopt')) {
 }
 $null = Invoke-Check 'schema-data-comparison' @('exec', '-T', 'postgres-test', 'sh', '/checks/schema/compare.sh')
 $blocked = Invoke-Check 'backend-wrong-db' @('run', '--rm', '--no-deps', '-e', 'SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/hotel-bd', 'backend-check') -AllowFailure
-if ($blocked -ne 1) { throw 'Backend URL guard did not reject as expected' }
+if ($blocked -ne 64 -or -not (Select-String -LiteralPath (Join-Path $report 'backend-wrong-db.log') -Pattern 'ISOLATED_DATASOURCE_REJECTED' -Quiet)) { throw 'Backend URL guard did not reject as expected' }
 $blocked = Invoke-Check 'flyway-wrong-db' @('run', '--rm', '--no-deps', '-e', 'FLYWAY_URL=jdbc:postgresql://postgres:5432/hotel-bd', 'flyway-check', 'hotel_test', 'info') -AllowFailure
-if ($blocked -ne 1) { throw 'Flyway URL guard did not reject as expected' }
+if ($blocked -ne 64 -or -not (Select-String -LiteralPath (Join-Path $report 'flyway-wrong-db.log') -Pattern 'ISOLATED_DATASOURCE_REJECTED' -Quiet)) { throw 'Flyway URL guard did not reject as expected' }
 $backend = Invoke-Check 'backend-verify' @('run', '--rm', '--no-deps', 'backend-check') -AllowFailure
 $frontend = Invoke-Check 'frontend-checks' @('run', '--rm', '--no-deps', 'frontend-check') -AllowFailure
+if (Select-String -Path (Join-Path $report '*.log') -Pattern 'Flyway upgrade recommended|support has not been tested' -Quiet) { throw 'Unsupported Flyway/database combination' }
 Write-Host "Reports: $report. PostgreSQL remains available only inside the isolated network."
 if ($backend -ne 0 -or $frontend -ne 0) { exit 1 }

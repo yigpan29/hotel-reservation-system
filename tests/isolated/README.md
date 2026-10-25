@@ -17,6 +17,8 @@ se detiene si encuentra alguno. `-SkipBuild` reutiliza las imágenes de pruebas 
 construidas; omitirlo después de modificar fuentes o configuración.
 
 Las imágenes base están fijadas por digest para conservar las versiones ensayadas.
+`maven-settings.xml` fija Maven Central como mirror únicamente en las imágenes;
+no modifica la configuración Maven del host ni utiliza credenciales privadas.
 Las descargas npm/Maven ocurren durante la construcción de imágenes sin acceso a
 la red Compose de desarrollo ni configuración privada del proyecto. Los checks
 se ejecutan después en una red interna, Maven offline, sin puertos publicados,
@@ -38,13 +40,32 @@ obtenida con default_transaction_read_only=on. V1 conserva tipos, longitudes,
 precisión, identity, nombres de restricciones e índices y el nombre `availbility`.
 Solo elimina los comandos psql `restrict/unrestrict` y permite que `public` ya
 exista. Es una propuesta en el harness, no una migración instalada en la aplicación.
-No hay V2 ni cambios funcionales de dominio. Flyway 10.10.0 y su módulo PostgreSQL
-se ensayan por separado; integrar Flyway con Spring Boot sigue pendiente.
+No hay V2 ni cambios funcionales de dominio. Flyway **10.20.1**, su módulo
+`flyway-database-postgresql` 10.20.1 y JDBC 42.7.3 se ensayan en el runner.
+Spring Boot 3.3.2 gestiona Flyway 10.10.0 por defecto; la versión seleccionada
+conserva la misma versión mayor y añade el soporte PostgreSQL 17 incorporado en
+10.20.0, con las correcciones de 10.20.1. Véanse las
+[notas oficiales de Flyway](https://documentation.red-gate.com/flyway/release-notes-and-older-versions/release-notes-for-flyway-engine)
+y el [BOM de Boot 3.3.2](https://github.com/spring-projects/spring-boot/blob/v3.3.2/spring-boot-project/spring-boot-dependencies/build.gradle).
+
+El backend ejecuta primero su `clean verify` original. Después comprueba la
+autoconfiguración real de Flyway con Boot 3.3.2 usando el perfil Maven
+`isolated-flyway`, añadido **solo a la copia del POM dentro de la imagen** por
+`prepare-backend.awk` y `flyway-profile.xml`. Sus dependencias Flyway son de scope
+test; el POM del repositorio y el backend de desarrollo permanecen intactos.
+`IsolatedFlywayCompatibilityTests` verifica el bean Flyway, la versión cargada,
+PostgreSQL 17, URL/base permitidas, baseline automático desactivado y validate.
+La migración V1 usada es exactamente la misma del runner independiente.
+Esto comprueba compatibilidad de la integración ensayada; no activa migraciones
+en desarrollo ni equivale a una adopción de su base.
 
 Los logs y códigos reales se guardan en `.local/isolated/<fecha>/`, ignorado por Git.
 Un fallo del frontend o backend devuelve código 1 aunque los ensayos de esquema
 pasen; el rechazo esperado de Flyway queda identificado por separado. No se
 descarga ninguna herramienta global, ni se modifica el POM/lockfile original.
+Las URLs de desarrollo se rechazan con código **64** y el marcador
+`ISOLATED_DATASOURCE_REJECTED`, antes de Maven. El runner comprueba ambos, y
+rechaza cualquier advertencia de versión PostgreSQL fuera del soporte Flyway.
 
 Para revisar o retirar los recursos, identificar antes nombres, etiquetas y
 montajes. Estos comandos solo apuntan al proyecto de pruebas:
