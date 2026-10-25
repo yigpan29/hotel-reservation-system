@@ -18,6 +18,9 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name="users")
 public class User {
+    @Column(nullable=false)
+    @Builder.Default
+    private String role = "USER";
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -34,11 +37,11 @@ public class User {
     @Column(name="created_at")
     private LocalDateTime createdAt;
     
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL,fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     @JsonIgnore
     private List<Reservation> reservations;
     
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     private List<Review> reviews;
 
 }
