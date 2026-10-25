@@ -4,6 +4,7 @@
 !hotel-reservation-system-backend/src/
 !hotel-reservation-system-backend/src/main/
 !hotel-reservation-system-backend/src/main/java/**
+!hotel-reservation-system-backend/src/main/resources/**
 !hotel-reservation-system-backend/src/test/**
 !hotel-reservation-system-frontend/
 !hotel-reservation-system-frontend/src/**
@@ -14,3 +15,5 @@
 !hotel-reservation-system-frontend/index.html
 !tests/
 !tests/isolated/**
+!.github/
+!.github/**

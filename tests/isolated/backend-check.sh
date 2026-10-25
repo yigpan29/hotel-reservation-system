@@ -10,7 +10,8 @@ set -eu
 [ "$SPRING_JPA_HIBERNATE_DDL_AUTO" = validate ]
 java -version
 mvn -version
+trap 'if [ -d /reports ] && [ -d target/surefire-reports ]; then cp -r target/surefire-reports /reports/; fi' EXIT
 mvn -o -B -ntp clean verify
 cp /checks/IsolatedFlywayCompatibilityTests.java src/test/java/app/mnhotel/hotel_reservation_system_backend/
-mvn -o -B -ntp -Pisolated-flyway dependency:tree -Dincludes=org.flywaydb:*
-exec mvn -o -B -ntp -Pisolated-flyway -Dtest=IsolatedFlywayCompatibilityTests test
+mvn -o -B -ntp dependency:tree -Dincludes=org.flywaydb:*
+mvn -o -B -ntp -Dtest=IsolatedFlywayCompatibilityTests test

@@ -1,83 +1,75 @@
-# Pruebas iniciales aisladas
-
-Desde la raíz del repositorio, con Docker Desktop disponible:
+# Validación aislada del sistema completo
 
 ```powershell
-powershell -NoProfile -File tests/isolated/run.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/isolated/run.ps1
 ```
 
-Si Windows bloquea scripts locales, la invocación comprobada usa
-`powershell -NoProfile -ExecutionPolicy Bypass -File tests/isolated/run.ps1`.
-La excepción se limita a ese proceso; no cambia la política global.
+Linux/CI: `pwsh -File tests/isolated/run.ps1`. Se fija siempre proyecto
+`hotel-reservation-system-test`, archivo `compose.test.yaml` y `empty.env`.
+Se rechaza comenzar sobre contenedores de pruebas ya existentes.
 
-El runner usa siempre `-p hotel-reservation-system-test`, `-f compose.test.yaml`
-y un archivo de entorno vacío explícito. No ejecutar estos servicios combinando el
-Compose de desarrollo. Requiere un proyecto de pruebas sin contenedores previos;
-se detiene si encuentra alguno. `-SkipBuild` reutiliza las imágenes de pruebas ya
-construidas; omitirlo después de modificar fuentes o configuración.
+Para repetir: `powershell -NoProfile -ExecutionPolicy Bypass -File tests/isolated/reset.ps1`.
+Ese comando verifica nombres, etiquetas, redes y montajes antes de retirar
+**solo** los recursos temporales; rechaza recursos desconocidos o checks activos.
+No elimina archivos, volúmenes de desarrollo ni utiliza limpieza global.
 
-Las imágenes base están fijadas por digest para conservar las versiones ensayadas.
-`maven-settings.xml` fija Maven Central como mirror únicamente en las imágenes;
-no modifica la configuración Maven del host ni utiliza credenciales privadas.
-Las descargas npm/Maven ocurren durante la construcción de imágenes sin acceso a
-la red Compose de desarrollo ni configuración privada del proyecto. Los checks
-se ejecutan después en una red interna, Maven offline, sin puertos publicados,
-sin binds de fuentes de aplicación y sin volúmenes persistentes. PostgreSQL usa
-tmpfs y credenciales públicas exclusivas de esta prueba desechable.
-`.dockerignore` limita el contexto; no incorpora `.env`, `.git`, `bin`, `target`
-ni las dependencias de desarrollo. La configuración Spring original tampoco se
-copia: solo se usa el perfil `isolated`, datasource explícito y Hibernate validate.
+## Recorrido ejecutado
 
-Se crean tres bases en la misma instancia PostgreSQL temporal: `hotel_test`
-(V1 desde cero y JPA validate), `hotel_legacy` (referencia DDL) y `hotel_adopt`
-(referencia con seis filas sintéticas, rechazo sin baseline y baseline explícito
-1). Se comparan dumps de esquema excluyendo únicamente el historial Flyway,
-comentarios y tokens aleatorios de pg_dump. Se compara también el dump de datos
-y las posiciones de secuencias antes/después de adoptar.
+1. Construir imágenes con Java 17/Maven, Node 22 y Chromium/Playwright 1.60.0.
+   Los checks usan copias de fuentes y cachés propias. Maven Central se configura
+   solo dentro de las imágenes; no se instalan herramientas globales.
+2. PostgreSQL 17.11 en tmpfs, sin puerto del host y con credenciales públicas
+   exclusivas de pruebas; bases `hotel_test`, `hotel_legacy`, `hotel_adopt`.
+3. Restaurar DDL original sin datos, cargar seis fixtures sintéticos en la copia
+   de adopción, migrar V1 desde cero y demostrar rechazo sin baseline.
+4. Baseline explícito 1, comparar V1 fielmente, aplicar V2 en ambas rutas,
+   repetir migrate/validate y comprobar igualdad de DDL y conservación de
+   columnas legacy, fechas, IDs y posiciones de secuencia.
+5. Rechazar URLs de desarrollo antes de Maven (código 64 y marcador explícito).
+6. `mvn -o -B -ntp clean verify`, prueba adicional de autoconfiguración Flyway/Boot
+   y árbol de dependencias. El backend principal ya incluye Flyway 10.20.1,
+   módulo PostgreSQL, validación y Security; no se inyecta un POM alternativo.
+7. TypeScript, ESLint y build de producción en la copia frontend.
+8. Iniciar una demo vacía con perfil explícito y datos sintéticos; esperar readiness.
+9. Playwright: cliente completo, administración de inventario y vista móvil.
 
-`schema/legacy.sql` es una extracción **solo de estructura** de PostgreSQL 17.11,
-obtenida con default_transaction_read_only=on. V1 conserva tipos, longitudes,
-precisión, identity, nombres de restricciones e índices y el nombre `availbility`.
-Solo elimina los comandos psql `restrict/unrestrict` y permite que `public` ya
-exista. Es una propuesta en el harness, no una migración instalada en la aplicación.
-No hay V2 ni cambios funcionales de dominio. Flyway **10.20.1**, su módulo
-`flyway-database-postgresql` 10.20.1 y JDBC 42.7.3 se ensayan en el runner.
-Spring Boot 3.3.2 gestiona Flyway 10.10.0 por defecto; la versión seleccionada
-conserva la misma versión mayor y añade el soporte PostgreSQL 17 incorporado en
-10.20.0, con las correcciones de 10.20.1. Véanse las
-[notas oficiales de Flyway](https://documentation.red-gate.com/flyway/release-notes-and-older-versions/release-notes-for-flyway-engine)
-y el [BOM de Boot 3.3.2](https://github.com/spring-projects/spring-boot/blob/v3.3.2/spring-boot-project/spring-boot-dependencies/build.gradle).
+`-SkipBuild` solo reutiliza imágenes que ya reflejan las fuentes actuales.
+`-SkipE2E` omite demo/navegador, manteniendo DB/JUnit/frontend.
 
-El backend ejecuta primero su `clean verify` original. Después comprueba la
-autoconfiguración real de Flyway con Boot 3.3.2 usando el perfil Maven
-`isolated-flyway`, añadido **solo a la copia del POM dentro de la imagen** por
-`prepare-backend.awk` y `flyway-profile.xml`. Sus dependencias Flyway son de scope
-test; el POM del repositorio y el backend de desarrollo permanecen intactos.
-`IsolatedFlywayCompatibilityTests` verifica el bean Flyway, la versión cargada,
-PostgreSQL 17, URL/base permitidas, baseline automático desactivado y validate.
-La migración V1 usada es exactamente la misma del runner independiente.
-Esto comprueba compatibilidad de la integración ensayada; no activa migraciones
-en desarrollo ni equivale a una adopción de su base.
+## Aislamiento y acceso manual
 
-Los logs y códigos reales se guardan en `.local/isolated/<fecha>/`, ignorado por Git.
-Un fallo del frontend o backend devuelve código 1 aunque los ensayos de esquema
-pasen; el rechazo esperado de Flyway queda identificado por separado. No se
-descarga ninguna herramienta global, ni se modifica el POM/lockfile original.
-Las URLs de desarrollo se rechazan con código **64** y el marcador
-`ISOLATED_DATASOURCE_REJECTED`, antes de Maven. El runner comprueba ambos, y
-rechaza cualquier advertencia de versión PostgreSQL fuera del soporte Flyway.
+PostgreSQL, backend y runners solo pertenecen a la red interna propia. El
+frontend de demo se conecta además a una red web exclusiva del proyecto, sin
+credenciales PostgreSQL, para publicar **127.0.0.1:55173**. La API se accede por
+`http://127.0.0.1:55173/api`; el backend no publica puerto y PostgreSQL tampoco.
+Ningún servicio se une a la red de desarrollo ni monta su volumen PostgreSQL.
+Esta separación permite acceso desde Docker Desktop sin abrir salida de la base
+ni de los runners. Los puertos 3000/5173/5432 de desarrollo no son targets de pruebas.
 
-Para revisar o retirar los recursos, identificar antes nombres, etiquetas y
-montajes. Estos comandos solo apuntan al proyecto de pruebas:
+La configuración Spring `isolated` exige datasource explícito, Hibernate validate,
+Flyway sin baseline automático/clean y DevTools desactivado. Las URLs de desarrollo
+se rechazan explícitamente en ambos runners; no hay fallback a properties privadas.
+Las fuentes de la aplicación no se montan en los servicios de ejecución.
+Solo se escriben reportes en `.local/isolated-artifacts/`.
 
-```powershell
-docker compose -p hotel-reservation-system-test --env-file tests/isolated/empty.env -f compose.test.yaml ps --all
-docker inspect hotel-reservation-system-test-postgres-test-1 --format '{{.Name}} {{json .Config.Labels}} {{json .Mounts}} {{json .HostConfig.Tmpfs}}'
-# Solo después de confirmar proyecto/nombres/montajes de pruebas:
-docker compose -p hotel-reservation-system-test --env-file tests/isolated/empty.env -f compose.test.yaml down
-```
+La demo usa únicamente cuentas sintéticas de `compose.test.yaml` y exige base
+vacía `hotel_test`; la carga no es un seeder de producción. Las instrucciones
+para usuarios/admin y para una instalación normal están en [INICIO-LOCAL.md](../../INICIO-LOCAL.md).
 
-No usar limpieza global, `down -v` ni comandos sobre Compose de desarrollo.
-`down` destruye únicamente el tmpfs de pruebas y su red; conserva imágenes y logs.
-No detener/reiniciar PostgreSQL temporal si se desea conservar los datos para
-revisión: tmpfs es deliberadamente efímero.
+## Evidencias
+
+- `.local/isolated/<fecha>/`: logs por comprobación y códigos de salida.
+- `.local/isolated-artifacts/backend/surefire-reports/`: XML y texto de JUnit.
+- `.local/isolated-artifacts/e2e/<fecha>/`: HTML, JUnit, capturas y trazas de fallo.
+- Las ejecuciones fallidas se conservan; sus logs no se presentan como aprobados.
+
+En GitHub Actions los mismos directorios se suben como artifacts incluso cuando
+falla una prueba. Todos los códigos obligatorios se propagan; solo los rechazos
+negativos concretos se aceptan después de comprobar mensaje/código.
+
+`schema/legacy.sql` y `migrations/V1__legacy_schema.sql` son referencias del ensayo
+inicial. Las migraciones activas están en `backend/src/main/resources/db/migration`
+(subproyecto `hotel-reservation-system-backend`). `flyway-profile.xml` y
+`prepare-backend.awk` se conservan como referencia de la comprobación anterior;
+las imágenes actuales no los usan. No se afirma una adopción de desarrollo ni
+una restauración de datos reales. La auditoría histórica permanece intacta.

@@ -10,7 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(properties = {
     "spring.flyway.enabled=true",
-    "spring.flyway.locations=filesystem:/checks/migrations",
+    "spring.flyway.locations=classpath:db/migration",
     "spring.flyway.baseline-on-migrate=false",
     "spring.flyway.clean-disabled=true"
 })
@@ -25,7 +25,7 @@ class IsolatedFlywayCompatibilityTests {
             .contains("flyway-core-10.20.1.jar");
         assertThat(flyway.getConfiguration().isBaselineOnMigrate()).isFalse();
         assertThat(flyway.getConfiguration().isCleanDisabled()).isTrue();
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("1");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("2");
         assertThat(flyway.info().pending()).isEmpty();
         flyway.validate();
         try (var connection = flyway.getConfiguration().getDataSource().getConnection()) {

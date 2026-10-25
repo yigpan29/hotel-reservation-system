@@ -5,5 +5,5 @@ COPY tests/isolated/flyway-pom.xml ./pom.xml
 RUN mvn -B -ntp dependency:go-offline
 RUN mvn -B -ntp dependency:get -Dartifact=org.flywaydb:flyway-database-postgresql:10.20.1 \
     && mvn -B -ntp dependency:get -Dartifact=org.postgresql:postgresql:42.7.3
-COPY tests/isolated/migrations /checks/migrations
+COPY hotel-reservation-system-backend/src/main/resources/db/migration /checks/migrations
 COPY tests/isolated/flyway-check.sh /checks/flyway-check.sh
