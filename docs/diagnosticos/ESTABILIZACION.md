@@ -4,7 +4,7 @@ Fecha: 2026-10-25. Rama de trabajo: `chore/configuracion-inicial`.
 
 Este documento registra evidencia nueva. No modifica ni sustituye `docs/auditorias/AUDITORIA_INICIAL.md`.
 
-**Actualización vigente: corrección de base técnica y validación completa del 2026-10-25 al final del documento.** Los fallos y aprobaciones pendientes de las secciones anteriores se conservan como trazabilidad histórica. El desarrollador autorizó corregir TypeScript, resolver la compatibilidad Flyway, verificar y organizar commits locales. Los cambios funcionales y cualquier migración/escritura sobre desarrollo siguen fuera de alcance.
+**Actualización vigente: implementación funcional completa y pruebas del 2026-10-25 al final del documento.** El desarrollador autorizó posteriormente completar backend/frontend, auth, reservas, administración, demo, pruebas, CI y publicación para revisión. Las restricciones de las secciones anteriores se conservan como trazabilidad de esas sesiones. Sigue sin autorizarse baseline/migraciones/escrituras sobre PostgreSQL de desarrollo ni implementar HU-01/02/03.
 
 ## Estado inicial y alcance completado
 
@@ -525,3 +525,117 @@ Se preservaron `b6b58e0` y `f89859c`, así como el contenido pendiente anterior.
 3. **`test: validar Flyway 10.20.1 con PostgreSQL 17 y Spring Boot`**: versión alineada, prueba real de autoconfiguración, resolución Maven confinada a las imágenes, controles negativos explícitos, documentación y resultados finales de esta sección. El hash de este commit se comunica al cerrar la entrega.
 
 No se hizo fetch, push, PR, merge ni cambios en `base`. Esta entrega valida exclusivamente la base técnica y se detiene para revisión antes de implementar funcionalidades de negocio.
+
+## Implementación funcional completa — 2026-10-25
+
+Se retomó desde `d0e2aa1` con Git limpio y autorización expresa para completar el
+sistema sin aprobaciones entre módulos. Se revisó la documentación previa sin
+repetir la auditoría; el hash de la auditoría continúa siendo
+`75297166f4a8d198247969fe1f3441d34c371905`.
+
+### Funcionalidad y decisiones
+
+Se completaron registro/login/logout/me, BCrypt, sesión HttpOnly, CSRF y roles
+USER/ADMIN; catálogo público real, búsqueda, detalle y habitaciones por fecha;
+gestión administrativa de hoteles/habitaciones/reservas; confirmación, consulta
+propia, propiedad, cancelación, filtros y conservación del historial.
+React usa fetch y proxy del mismo origen, muestra errores/carga y protege rutas.
+La navegación anterior se mantiene y se conserva el diseño naranja con tarjetas,
+menú adaptable y formularios, sin inventario estático en pantallas funcionales.
+
+El POM principal incorpora Security, validación, Flyway 10.20.1 y módulo PostgreSQL.
+V1 reproduce el esquema original; V2 añade roles, activación, precio pactado,
+cancelación, restricciones/índices y renombra `availbility` sin perder su valor.
+Hibernate validate y baseline automático desactivado; migraciones de desarrollo
+deshabilitadas por defecto. No se cambió Spring Boot ni el resto del stack.
+La copia properties de `bin/` se alineó con la configuración externa, sin añadir
+secretos ni reescribir el historial.
+
+La confirmación bloquea la habitación en una transacción y vuelve a consultar
+solapamientos. Entrada inclusiva/salida exclusiva, reloj America/Panama, 1–365
+noches; precios USD enteros heredados y total bigint. Estados CONFIRMED/CANCELLED;
+cancelación hasta el día de entrada inclusive, idempotente y sin borrado de filas.
+No se truncan timestamps ni se inventan precios de datos legacy.
+
+El perfil `provision-admin` requiere datos privados y confirmación explícita;
+no promueve usuarios existentes. Demo exige base de pruebas/demostración vacía
+y confirmación; no hay seeder automático de producción ni pagos reales.
+Contratos completos: [API](../API.md). Instalación/admin/demo: [inicio](../../INICIO-LOCAL.md).
+Decisiones y evidencia detallada: [AI Development Log](../AI_DEVELOPMENT_LOG.md).
+
+### Resultados reales finales
+
+Ejecución **`.local/isolated/20261025-151312/` — exit 0**, tras reconstruir imágenes.
+La ejecución completa anterior `20261025-150239` también pasó. Los fallos previos
+de TypeScript/CSS y selectores/esperas Playwright se conservaron y corrigieron,
+sin relajar reglas, introducir sleeps o esconder códigos de salida.
+
+| Verificación | Resultado ejecutado |
+|---|---|
+| Compilación limpia, empaquetado Maven | Exit 0 |
+| JUnit integración API/dominio | 18 pruebas, 0 fallos/errores/omitidas |
+| Contexto original + autoconfiguración Flyway principal | 2 pruebas adicionales correctas; **20 Java en total** |
+| Flyway: V1 nueva, baseline explícito y V2 adoptada | Correctos; repetición/validate sin inconsistencias |
+| Preservación legacy | DDL equivalente, valores/fechas/IDs/secuencias conservados |
+| Arranque JAR sobre base vacía | Boot aplica V1/V2 automáticamente; Hibernate validate, readiness 200 y catálogo vacío |
+| Adopción sin baseline / URLs de desarrollo | Rechazos esperados: 1 con mensaje concreto / 64 con marcador previo a Maven |
+| TypeScript / ESLint / build | **0 / 0 / 0** |
+| Playwright Chromium | **3 correctas**: cliente completo, administrador e inventario público, móvil |
+| Workflow | actionlint 1.7.7 ejecutado, exit 0; ejecución remota se registra al publicar |
+| Acceso host a demo | HTTP 200 en `127.0.0.1:55173/` y `/api/health` |
+
+Las pruebas de concurrencia usan dos hilos y transacciones PostgreSQL reales:
+exactamente una respuesta lógica 201 y una 409 para fechas incompatibles. También
+se verificaron estancias consecutivas, tarifa histórica tras editar habitación,
+FK/precio/duplicados, registro sin escalada de rol, CSRF, logout, permisos y acceso
+ajeno. Playwright registró usuario, inició/cerró sesión, creó/canceló reserva y
+comprobó persistencia tras recargar; ADMIN creó/editó hotel/habitación visibles.
+Se inspeccionaron las capturas de detalle y móvil; no hay desbordamiento horizontal.
+
+JUnit XML/texto: `.local/isolated-artifacts/backend/surefire-reports/`. HTML,
+capturas y trazas: `.local/isolated-artifacts/e2e/<ejecución>/`. Los artifacts no se
+versionan. Los avisos Browserslist y JVM class sharing son no bloqueantes y siguen
+visibles; no se presenta una auditoría exhaustiva de producción como realizada.
+
+### Aislamiento y límite operativo observado
+
+Proyecto temporal `hotel-reservation-system-test`; PostgreSQL y backend solo en
+red interna, sin publicar sus puertos ni montar volúmenes de desarrollo. Fuentes
+copiadas, cachés propias y reportes en `.local/`. Solo el frontend de pruebas tiene
+otra red web exclusiva para publicar loopback **55173**; la API pasa por su proxy.
+Se comprobó el acceso real desde el host. `reset.ps1` identifica y verifica cada
+recurso antes de retirar solo contenedores/redes temporales; no limpia archivos
+ni usa prune/down -v. La demo final se deja healthy para revisión.
+
+**No es correcto afirmar que los tres contenedores de desarrollo permanecieron
+idénticos durante toda esta tarea.** Se observó recreación externa de frontend y
+backend a las 19:44:20 UTC. No corresponde a comandos de recreación ejecutados
+por el agente y no se atribuye a un actor sin evidencia. El backend recreado
+rechaza el esquema antiguo (`missing column [active]`) con migraciones deshabilitadas;
+no se habilitó Flyway para solucionarlo ni se intervino sobre ese proceso.
+
+PostgreSQL conserva su ID, volumen, arranque y cero reinicios. La comprobación
+posterior fue `BEGIN READ ONLY`: **34 columnas, ningún flyway_schema_history y
+cero filas en las seis tablas**, igual al inventario previo. No hubo baseline,
+migraciones ni escrituras SQL contra desarrollo. Su puesta en esta versión exige
+respaldo/restauración, revisión de equivalencia y adopción explícita autorizada.
+La aplicación funcional validada es la demo aislada, no un despliegue sobre la
+instalación existente.
+
+### Git, CI y revisión
+
+Issue real vinculada: [#3](https://github.com/yigpan29/hotel-reservation-system/issues/3).
+Se organizaron commits de persistencia, auth, catálogo, reservas, demo, frontend,
+pruebas, CI y documentación, conservando todos los anteriores y sin modificar
+`base` (`2f82bdb`). El conector GitHub no pudo ver el repositorio; la autenticación
+Git existente confirmó acceso y permiso push mediante API, sin imprimir/guardar
+tokens. Publicación y PR se completan tras revisar el diff y los artefactos.
+
+El workflow ejecuta en PR hacia `base` o manualmente, sin `.env` del desarrollador,
+Docker Desktop ni secretos de despliegue. Jobs de frontend y DB/JUnit/Playwright
+propagan fallos y suben artifacts incluso cuando fallan. No configura producción
+ni merge automático. La validación local no se confunde con un resultado remoto.
+
+HU-01, HU-02 y HU-03 siguen excluidas: sin checkout/información reutilizable,
+medios de pago, calendario avanzado ni forecasting/gráficos de demanda. Payment
+y Review permanecen por compatibilidad, sin flujos bancarios ni reseñas nuevas.

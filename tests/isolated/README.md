@@ -19,13 +19,16 @@ No elimina archivos, volúmenes de desarrollo ni utiliza limpieza global.
    Los checks usan copias de fuentes y cachés propias. Maven Central se configura
    solo dentro de las imágenes; no se instalan herramientas globales.
 2. PostgreSQL 17.11 en tmpfs, sin puerto del host y con credenciales públicas
-   exclusivas de pruebas; bases `hotel_test`, `hotel_legacy`, `hotel_adopt`.
+   exclusivas de pruebas; bases `hotel_test`, `hotel_legacy`, `hotel_adopt` y
+   `hotel_demo` (vacía para verificar arranque automático).
 3. Restaurar DDL original sin datos, cargar seis fixtures sintéticos en la copia
    de adopción, migrar V1 desde cero y demostrar rechazo sin baseline.
 4. Baseline explícito 1, comparar V1 fielmente, aplicar V2 en ambas rutas,
    repetir migrate/validate y comprobar igualdad de DDL y conservación de
    columnas legacy, fechas, IDs y posiciones de secuencia.
-5. Rechazar URLs de desarrollo antes de Maven (código 64 y marcador explícito).
+5. Arrancar el JAR real contra `hotel_demo` vacía: Boot ejecuta automáticamente
+   V1/V2, Hibernate validate, readiness y catálogo vacío. El proceso temporal se
+   detiene al verificarlo. Rechazar URLs de desarrollo antes de Maven (64 y marcador).
 6. `mvn -o -B -ntp clean verify`, prueba adicional de autoconfiguración Flyway/Boot
    y árbol de dependencias. El backend principal ya incluye Flyway 10.20.1,
    módulo PostgreSQL, validación y Security; no se inyecta un POM alternativo.
