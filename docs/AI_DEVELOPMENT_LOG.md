@@ -280,3 +280,68 @@ cualquier método distinto de GET/HEAD, verificando cero intentos de escritura.
 Capturas privadas en `.local/private-development-adoption/browser/`.
 Se revisaron visualmente capturas de catálogo, registro, administración y móvil;
 se conservan navegación, tarjetas y colores naranjas.
+
+## Catálogo de Panamá y administración de desarrollo — 25/10/2026
+
+Autorización específica del desarrollador para datos de `hotel-bd`: promover
+exactamente `yonielvegas`, aprovisionar `demo-admin` y cargar hoteles/habitaciones.
+Se verificaron destino y Flyway: V1 BASELINE y V2 SQL, ambas success. No se repitió
+baseline, no se ejecutaron migraciones ni se alteró el esquema.
+
+Había un usuario, cero hoteles/habitaciones/reservas. Se hizo un respaldo custom
+privado antes de escribir. `yonielvegas` era una única coincidencia (USER) y pasó
+a ADMIN en una transacción que comparó todos los demás campos antes/después:
+idénticos. BCrypt confirmado sin mostrar hash ni correo. No se utilizó su cuenta
+personal en pruebas automatizadas. Debe cerrar sesión y volver a entrar para
+renovar las autoridades almacenadas en su sesión.
+
+Se incorporaron `PanamaCatalog`, su runner exclusivo de perfil `catalog-panama`,
+JSON con fuentes oficiales y los scripts explícitos de carga/entrada privada/
+aprovisionamiento. El comando sale al finalizar con `HOTEL_SETUP_EXIT`, sin
+afectar el arranque normal. La carga exige confirmación, base exacta permitida,
+transacción y advisory lock. Nunca actualiza hoteles/habitaciones existentes;
+reconoce nombres o números DEMO y rechaza coincidencias ambiguas. No incorpora
+nuevas columnas, tablas, dependencias ni migraciones. La carga no administra usuarios.
+El seeder conserva inventario retirado/editado y no repone habitaciones existentes.
+Las condiciones de identificación y ejecución están en [DEMOSTRACION_PANAMA.md](DEMOSTRACION_PANAMA.md).
+
+Datos ejecutados en desarrollo mediante `scripts/Load-PanamaCatalog.ps1
+-ConfirmEducationalData`: **12 hoteles y 72 habitaciones**, seis por hotel, activas,
+precios simulados 65–285 USD/B/. por noche. Nombres, localización y características
+generales se contrastaron con sitios oficiales; fuentes en el JSON y la guía.
+Sin calificaciones inventadas (`rating=null`), fotografías copiadas ni afiliación.
+Las descripciones visibles identifican inventario y precios como demostración.
+No se crearon reservas ni se modificaron cuentas durante la carga.
+
+Segunda ejecución real: **0 hoteles, 0 habitaciones, 12 preservados**. Snapshots
+privados de datos de usuarios/hoteles/habitaciones/reservas y secuencias antes y
+después coincidieron. Evidencias `.local/catalog-development-first.log`,
+`.local/catalog-development-repeat.log`; respaldos en `.local/private-demonstration/`.
+Ningún respaldo, secreto ni dato personal se versiona o publica como artifact.
+
+Validación aislada completa `.local/isolated/20261025-185509/`: exit 0.
+Maven clean verify: 22 pruebas (incluidas tres de catálogo); compatibilidad Flyway:
+1 adicional. **23 Java**, cero fallos/errores/omitidas; TypeScript, ESLint y build
+correctos; migraciones e aislamiento correctos; **5 Playwright correctos**.
+Las pruebas nuevas comprueban autorización/destino, 12/72, repetición conservando
+nombre/descripción/estado/número/tipo/precio editados, reserva y precio histórico,
+y rechazo de identidades ambiguas. Las modificaciones de prueba usaron solo hotel_test.
+
+Una prueba Chromium adicional sobre desarrollo pasó (1/1), bloqueando todos los
+métodos salvo GET/HEAD: 12 tarjetas reales de PostgreSQL, búsquedas de Boquete,
+detalles de los 12 hoteles, seis habitaciones y precios por hotel, páginas de
+registro/login, CSRF 200 y rechazo anónimo administrativo 401. Sin errores 5xx
+ni de ejecución. Evidencia `.local/panama-development-browser.log`; capturas
+privadas revisadas visualmente en `.local/private-demonstration/browser/`.
+CRUD administrativo, permisos USER/ADMIN y reservas se volvieron a probar en
+aislamiento; no se insertaron datos adicionales de esas pruebas en desarrollo.
+
+**Dependencia pendiente:** `demo-admin` no existía. El operador eligió continuar
+el resto e introducir su clave después. Se preparó entrada oculta local y
+aprovisionamiento con el perfil BCrypt existente; no se inventó una contraseña
+ni se creó una cuenta con credenciales conocidas. Hasta recibir la entrada
+privada no se declara creada/autenticada esa cuenta de desarrollo. Los usuarios
+efímeros del harness no se presentan como sustitutos.
+
+El catálogo y `yonielvegas` están listos; el cierre de ambas cuentas administrativas
+queda condicionado a esa entrada privada. HU-01/HU-02/HU-03 y pagos siguen excluidos.

@@ -85,6 +85,11 @@ Esa autorización no habilita otras migraciones ni cargas de datos automáticas.
 
 ## Administrador de una instalación normal
 
+El catálogo educativo de Panamá y los comandos explícitos para `demo-admin` se
+documentan en [DEMOSTRACION_PANAMA.md](docs/DEMOSTRACION_PANAMA.md). No hay una clave
+predeterminada para esa cuenta de desarrollo. El inventario de demostración tiene
+nombres/ubicaciones reales y habitaciones/tarifas ficticias identificadas.
+
 No existe endpoint público para crear o promover administradores. El registro
 siempre crea USER. En una instalación nueva ya migrada y autorizada, suministrar
 mediante un gestor de secretos, variables de proceso o un archivo privado `.env.admin`:
