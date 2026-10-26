@@ -1,0 +1,15 @@
+<!-- Inserted only into the image's copy of the backend POM. Never into development. -->
+<profiles>
+  <profile>
+    <id>isolated-flyway</id>
+    <properties><flyway.version>10.20.1</flyway.version></properties>
+    <dependencies>
+      <dependency>
+        <groupId>org.flywaydb</groupId><artifactId>flyway-core</artifactId><scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.flywaydb</groupId><artifactId>flyway-database-postgresql</artifactId><scope>test</scope>
+      </dependency>
+    </dependencies>
+  </profile>
+</profiles>

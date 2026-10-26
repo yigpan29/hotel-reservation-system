@@ -1,90 +1,45 @@
-# Sistema de Reservas de Hoteles
+# Hotel Reservation System · HOTEL MN
 
-## Descripción
+Aplicación universitaria funcional para buscar hoteles, consultar habitaciones
+por fecha, registrar una cuenta, iniciar sesión, confirmar y cancelar reservas.
+El administrador gestiona hoteles/habitaciones y consulta o cancela reservas.
 
-Una aplicación para gestionar reservas de habitaciones en hoteles. Permite a los usuarios ver la disponibilidad de habitaciones, realizar y cancelar reservas, y gestionar tarifas. Además, incluye un sistema de reseñas y valoraciones y se integra con pasarelas de pago.
+React 18 + TypeScript + Vite + Tailwind; Java 17 + Spring Boot 3.3.2,
+Spring Security con sesión/CSRF, JPA y PostgreSQL 17; Flyway 10.20.1.
+No usa JWT, pagos externos ni datos de tarjetas. Payment y Review se conservan
+por compatibilidad; no hay flujos de pago ni publicación de reseñas.
 
-## Funcionalidades
+## Ejecutar y demostrar
 
-- **Registro y autenticación de usuarios**: Los usuarios pueden registrarse, iniciar sesión y gestionar sus perfiles.
-- **Búsqueda y visualización de hoteles y habitaciones**: Permite buscar hoteles y habitaciones disponibles y visualizar sus detalles.
-- **Reserva y cancelación de habitaciones**: Facilita la reserva de habitaciones y su posterior cancelación si es necesario.
-- **Gestión de tarifas y disponibilidad**: Administra las tarifas de las habitaciones y su disponibilidad en tiempo real.
-- **Sistema de reseñas y valoraciones**: Los usuarios pueden dejar reseñas y valoraciones sobre los hoteles y habitaciones.
-- **Integración con pasarelas de pago**: Utiliza la API de Mercado Pago para procesar los pagos de las reservas.
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/isolated/run.ps1
+```
 
-## Tecnologías
+Ejecuta migraciones, pruebas JUnit, validaciones frontend y Playwright en Docker,
+sin tocar PostgreSQL de desarrollo. Al terminar, la demo está en
+http://127.0.0.1:55173. La API usa el mismo origen, `/api`; PostgreSQL y backend
+permanecen en una red interna. Las cuentas sintéticas y los pasos para repetir
+desde cero están en [INICIO-LOCAL.md](INICIO-LOCAL.md).
 
-- **Backend**: Spring Boot + JWT + Spring Security + JPA + JAVA
-- **Frontend**: React + Vite + TypeScript + Tailwind CSS
-- **Base de Datos**: PostgreSQL
-- **Pasarela de Pago**: Mercado Pago API + Stripe API
+La base legacy existente **no se migra automáticamente**. Una instalación nueva
+exige habilitar explícitamente migraciones sobre una base vacía; una adopción
+existente requiere respaldo, revisión y baseline explícito autorizado.
 
-## Clonar el Repositorio
+## Documentación
 
-Para clonar este repositorio y comenzar a trabajar con el sistema de reservas de hoteles, sigue estos pasos:
+- [Inicio, administrador, demo y pruebas](INICIO-LOCAL.md).
+- [Contrato API y reglas del dominio](docs/API.md).
+- [Entorno aislado y reportes](tests/isolated/README.md).
+- [AI Development Log](docs/AI_DEVELOPMENT_LOG.md).
+- [Evidencia y diagnóstico histórico](docs/diagnosticos/ESTABILIZACION.md).
+- [Auditoría inicial conservada](docs/auditorias/AUDITORIA_INICIAL.md).
 
-1. Clona el repositorio usando el siguiente comando:
+La CI valida frontend y el ciclo completo DB/JUnit/Playwright en PR a `base`
+y por ejecución manual, con reportes como artifacts. No despliega a producción.
 
-   ```bash
-   git clone https://github.com/natanael-lima/hotel-reservation-system.git
-   ```
+## Exclusiones
 
-2. Navega al directorio del proyecto:
-
-   ```bash
-   cd hotel-reservation-system
-   ```
-
-3. **Configuración del Backend**:
-
-   - Asegúrate de tener [Spring Boot](https://spring.io/projects/spring-boot) instalado.
-   - Configura tu archivo `application.properties` con las credenciales de la base de datos y las credenciales de la API de Mercado Pago.
-
-4. **Configuración del Frontend**:
-
-   - Asegúrate de tener [Node.js](https://nodejs.org/) y [Yarn](https://classic.yarnpkg.com/) instalados.
-   - Instala las dependencias del frontend:
-
-     ```bash
-     cd frontend
-     yarn install
-     ```
-
-   - Inicia el servidor de desarrollo:
-
-     ```bash
-     yarn dev
-     ```
-
-5. **Base de Datos**:
-
-   - Asegúrate de tener [PostgreSQL](https://www.postgresql.org/) instalado y en funcionamiento.
-   - Configura la base de datos y aplica las migraciones necesarias.
-
-6. **Iniciar el Backend**:
-
-   - Navega al directorio del backend y ejecuta la aplicación:
-
-     ```bash
-     cd backend
-     ./mvnw spring-boot:run
-     ```
-## Vista Previa Diagrama
-
-Puedes ver una vista del Diagrama de Entidad-Relación (ER o MER). [![db-hotel.png](https://i.postimg.cc/CMbTmSvT/db-hotel.png)](https://postimg.cc/Lh4bsKKN)
-
-## Vista Previa
-
-Puedes ver una vista previa del proyecto. [![project-hotel-system.jpg](https://i.postimg.cc/yx8G1Czn/project-hotel-system.jpg)](https://postimg.cc/hzNsswv7)
-
-Con estos pasos, deberías estar listo para empezar a trabajar con la aplicación de reservas de hoteles. Si tienes alguna pregunta o encuentras algún problema, consulta la documentación del proyecto o contacta con el equipo de soporte.
-
-## Licencia
-
-Este proyecto está bajo la Licencia MIT. Consulta el archivo [LICENSE](LICENSE) para más detalles.
-
-## Realizado por
-
-- [Natanael Lima](https://github.com/natanael-lima)
-- [Maximiliano Gaitan](https://github.com/maxi1103)
+HU-01 (checkout acelerado/medios de pago), HU-02 (calendario interactivo avanzado)
+y HU-03 (pronósticos/gráficos de demanda) permanecen fuera de esta rama.
+El histórico básico de reservas se conserva para el funcionamiento del sistema;
+no implementa esas historias individuales.

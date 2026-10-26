@@ -1,0 +1,142 @@
+name: hotel-reservation-system-test
+
+services:
+  postgres-test:
+    image: postgres:17@sha256:b8faeff7712663c2773a190181e1246e37e364b887611c04658c28b44e2408fe
+    environment:
+      POSTGRES_DB: hotel_test
+      POSTGRES_USER: hotel_test
+      POSTGRES_PASSWORD: isolated-test-only
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./tests/isolated:/checks:ro
+    networks: [isolated]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U hotel_test -d hotel_test]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  backend-check:
+    image: hotel-reservation-system-test-backend-check
+    build:
+      context: .
+      dockerfile: tests/isolated/backend.Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: isolated
+      SPRING_CONFIG_LOCATION: classpath:/application-isolated.properties
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-test:5432/hotel_test
+      SPRING_DATASOURCE_USERNAME: hotel_test
+      SPRING_DATASOURCE_PASSWORD: isolated-test-only
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_DEVTOOLS_RESTART_ENABLED: 'false'
+    networks: [isolated]
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    command: [sh, /checks/backend-check.sh]
+    volumes:
+      - ./.local/isolated-artifacts/backend:/reports
+
+  frontend-check:
+    image: hotel-reservation-system-test-frontend-check
+    build:
+      context: .
+      dockerfile: tests/isolated/frontend.Dockerfile
+    networks: [isolated]
+    command: [sh, /checks/frontend-check.sh]
+
+  flyway-check:
+    image: hotel-reservation-system-test-flyway-check
+    build:
+      context: .
+      dockerfile: tests/isolated/flyway.Dockerfile
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres-test:5432/hotel_test
+      FLYWAY_USER: hotel_test
+      FLYWAY_PASSWORD: isolated-test-only
+    networks: [isolated]
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    entrypoint: [sh, /checks/flyway-check.sh]
+    command: [hotel_test, info]
+
+  bootstrap-check:
+    image: hotel-reservation-system-test-backend-check
+    command: [sh, /checks/bootstrap-check.sh]
+    environment:
+      SPRING_PROFILES_ACTIVE: isolated
+      SPRING_CONFIG_LOCATION: classpath:/application-isolated.properties
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-test:5432/hotel_demo
+      SPRING_DATASOURCE_USERNAME: hotel_test
+      SPRING_DATASOURCE_PASSWORD: isolated-test-only
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_DEVTOOLS_RESTART_ENABLED: 'false'
+    networks: [isolated]
+    depends_on:
+      postgres-test: {condition: service_healthy}
+
+  backend-app:
+    image: hotel-reservation-system-test-backend-check
+    command: [java, -jar, target/hotel-reservation-system-backend-0.0.1-SNAPSHOT.jar]
+    environment:
+      SPRING_PROFILES_ACTIVE: isolated,demo
+      SPRING_CONFIG_LOCATION: classpath:/application-isolated.properties
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-test:5432/hotel_test
+      SPRING_DATASOURCE_USERNAME: hotel_test
+      SPRING_DATASOURCE_PASSWORD: isolated-test-only
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_DEVTOOLS_RESTART_ENABLED: 'false'
+      HOTEL_DEMO_CONFIRM: CREATE_SYNTHETIC_DATA
+      HOTEL_DEMO_ADMIN_USERNAME: demo-admin
+      HOTEL_DEMO_ADMIN_EMAIL: demo-admin@example.invalid
+      HOTEL_DEMO_ADMIN_PASSWORD: Synthetic-admin-123
+      HOTEL_DEMO_USER_USERNAME: demo-user
+      HOTEL_DEMO_USER_EMAIL: demo-user@example.invalid
+      HOTEL_DEMO_USER_PASSWORD: Synthetic-user-123
+    networks: [isolated]
+    depends_on:
+      postgres-test: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, curl, -fsS, http://localhost:3000/api/health]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  frontend-app:
+    image: hotel-reservation-system-test-frontend-check
+    command: [npm, run, dev, --, --host, 0.0.0.0, --port, "5173", --strictPort]
+    environment:
+      API_PROXY_TARGET: http://backend-app:3000
+    ports: ["127.0.0.1:55173:5173"]
+    networks: [isolated, web]
+    depends_on:
+      backend-app: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://localhost:5173').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  e2e:
+    image: hotel-reservation-system-test-e2e
+    build:
+      context: .
+      dockerfile: tests/isolated/e2e.Dockerfile
+    environment:
+      BASE_URL: http://frontend-app:5173
+      CI: 'true'
+    networks: [isolated]
+    volumes:
+      - ./.local/isolated-artifacts/e2e:/reports
+    command: [npx, --no-install, playwright, test, --config=/checks/playwright.config.ts]
+    depends_on:
+      frontend-app: {condition: service_healthy}
+
+networks:
+  isolated:
+    internal: true
+  web:

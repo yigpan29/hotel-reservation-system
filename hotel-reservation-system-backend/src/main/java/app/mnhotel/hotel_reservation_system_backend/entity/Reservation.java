@@ -28,6 +28,9 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "reservations")
 public class Reservation {
+    @Column(name="nightly_price") private Integer nightlyPrice;
+    @Column(name="total_price") private Long totalPrice;
+    @Column(name="cancelled_at") private LocalDateTime cancelledAt;
 	@Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -44,16 +47,16 @@ public class Reservation {
 	@Column(name="created_at")
 	private LocalDateTime createdAt;
 	
-	@ManyToOne(fetch = FetchType.EAGER)
+	@ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
  	@JsonBackReference
  	private User user;
 	
-	@ManyToOne(fetch = FetchType.EAGER)
+	@ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "room_id")
  	@JsonBackReference
  	private Room room;
 	
-	@OneToMany(mappedBy = "reservation", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+	@OneToMany(mappedBy = "reservation", fetch = FetchType.LAZY)
 	private List<Payment> payments;
 }

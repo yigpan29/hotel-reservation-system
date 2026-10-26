@@ -1,5 +1,4 @@
 
-import React from 'react';
 import ProfileCircule from './ProfileCircule';
 
 interface HeaderProps {

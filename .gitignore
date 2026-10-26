@@ -1,0 +1,25 @@
+# Configuración privada. Solo se versionan ejemplos sin secretos.
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Dependencias, compilación, datos locales y herramientas del proyecto.
+**/node_modules/
+**/target/
+**/dist/
+**/.vite/
+**/*.tsbuildinfo
+**/*.log
+.local/
+data/
+backups/
+
+# Evidencias automatizadas generadas, publicadas como artifacts en CI.
+**/test-results/
+**/playwright-report/
+**/blob-report/
+**/coverage/
+
+# bin ya contiene archivos históricos rastreados; no agregar otros.
+hotel-reservation-system-backend/bin/

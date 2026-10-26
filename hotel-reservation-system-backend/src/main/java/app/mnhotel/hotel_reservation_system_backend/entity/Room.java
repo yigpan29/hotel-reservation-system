@@ -22,11 +22,14 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "rooms")
 public class Room {
+    @Column(nullable=false)
+    @Builder.Default
+    private Boolean active = true;
 	@Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 	
-	@ManyToOne(fetch = FetchType.EAGER)
+	@ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "hotel_id")
  	@JsonBackReference
  	private Hotel hotel;
@@ -40,7 +43,7 @@ public class Room {
 	@Column(name="price_per_night")
 	private Integer pricePerNight;
 	
-	@Column(name="availbility")
-	private Boolean availbility;
+	@Column(name="availability")
+	private Boolean availability;
 
 }

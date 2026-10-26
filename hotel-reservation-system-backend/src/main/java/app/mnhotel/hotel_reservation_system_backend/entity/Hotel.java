@@ -23,6 +23,9 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "hotels")
 public class Hotel {
+    @Column(nullable=false)
+    @Builder.Default
+    private Boolean active = true;
 	@Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -39,10 +42,10 @@ public class Hotel {
 	@Column(name="rating")
 	private Double rating;
 	
-	@OneToMany(mappedBy = "hotel",cascade = CascadeType.ALL)
+	@OneToMany(mappedBy = "hotel")
  	@JsonIgnoreProperties
     private List<Room> rooms;
 	
-	@OneToMany(mappedBy = "hotel", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+	@OneToMany(mappedBy = "hotel", fetch = FetchType.LAZY)
 	private List<Review> reviews;
 }

@@ -1,0 +1,59 @@
+name: Hotel Reservation System CI
+
+on:
+  pull_request:
+    branches: [base]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: hotel-reservation-system-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: hotel-reservation-system-frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npx --no-install tsc -b
+      - run: npm run lint
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-build
+          path: hotel-reservation-system-frontend/dist
+          if-no-files-found: ignore
+
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: PostgreSQL, migrations, JUnit and Playwright
+        shell: pwsh
+        run: ./tests/isolated/run.ps1
+      - name: Capture application logs
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p .local/isolated-artifacts
+          docker compose -p hotel-reservation-system-test --env-file tests/isolated/empty.env -f compose.test.yaml logs --no-color backend-app frontend-app postgres-test > .local/isolated-artifacts/application.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-and-browser-reports
+          include-hidden-files: true
+          path: |
+            .local/isolated/
+            .local/isolated-artifacts/
+          if-no-files-found: warn
+          retention-days: 7

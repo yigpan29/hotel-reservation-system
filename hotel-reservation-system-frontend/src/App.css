@@ -1,29 +1,8 @@
-
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #43ff43);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
+  .page { @apply max-w-7xl mx-auto px-4 sm:px-6 py-8; }
+  .title { @apply text-3xl font-bold text-gray-900 mb-6; }
+  .panel { @apply rounded-xl bg-white p-5 shadow-sm border border-gray-200; }
+  .field { @apply block w-full rounded border border-gray-300 bg-white px-3 py-2 mt-1 text-gray-900 focus:outline-orange-500; }
+  .action { @apply bg-orange-600 text-white rounded px-5 py-2 hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed; }
+  .notice-error { @apply my-4 rounded border border-red-200 bg-red-50 text-red-800 p-4; }
+  .notice-success { @apply my-4 rounded border border-green-200 bg-green-50 text-green-800 p-4; }
+button:disabled { opacity: .5; cursor: not-allowed; }
