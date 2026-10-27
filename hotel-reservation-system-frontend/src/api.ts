@@ -17,6 +17,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     const details = failure.fields ? ' · ' + Object.entries(failure.fields).map(([key, value]) => key + ': ' + value).join(' · ') : ''
     throw new ApiError(response.status, (failure.message || 'Error de servidor (' + response.status + ')') + details)
   }
+  if (options.method === 'POST' && (path.startsWith('/reservations') || path.startsWith('/notifications'))) window.dispatchEvent(new Event('notifications-updated'))
   return response.status === 204 ? undefined as T : response.json() as Promise<T>
 }
 export function message(error: unknown) { return error instanceof Error ? error.message : 'No se pudo completar la operación' }

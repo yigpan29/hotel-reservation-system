@@ -13,6 +13,9 @@ import About from './pages/About'
 import Auth from './pages/Auth'
 import MyReservations from './pages/MyReservations'
 import AdminPanel from './pages/AdminPanel'
+import NotificationProvider from './NotificationProvider'
+import Notifications from './pages/Notifications'
+import ReservationDetail from './pages/ReservationDetail'
 function Guard({ children, admin = false }: { children: ReactNode; admin?: boolean }) {
   const { user, loading, error } = useAuth(), location = useLocation()
   if (loading) return <p className="page" role="status">Cargando sesión…</p>
@@ -21,8 +24,9 @@ function Guard({ children, admin = false }: { children: ReactNode; admin?: boole
   if (admin && user.role !== 'ADMIN') return <section className="page"><h1 className="title">Acceso denegado</h1><p>Esta sección es exclusiva de administradores.</p></section>
   return children
 }
-export default function App() { return <BrowserRouter><AuthProvider><Header /><main id="MainContent" className="min-h-[70vh]"><Routes>
+export default function App() { return <BrowserRouter><AuthProvider><NotificationProvider><Header /><main id="MainContent" className="min-h-[70vh]"><Routes>
   <Route path="/" element={<Home />} /><Route path="/products" element={<Rooms />} /><Route path="/productDetail" element={<RoomDetails />} /><Route path="/hotels/:id" element={<RoomDetails />} /><Route path="/about" element={<About />} />
   <Route path="/login" element={<Auth />} /><Route path="/register" element={<Auth register />} /><Route path="/my-reservations" element={<Guard><MyReservations /></Guard>} /><Route path="/admin" element={<Guard admin><AdminPanel /></Guard>} />
+  <Route path="/notifications" element={<Guard><Notifications /></Guard>} /><Route path="/reservations/:id" element={<Guard><ReservationDetail /></Guard>} />
   <Route path="*" element={<section className="page"><h1 className="title">Página no encontrada</h1></section>} />
-</Routes></main><Footer /></AuthProvider></BrowserRouter> }
+</Routes></main><Footer /></NotificationProvider></AuthProvider></BrowserRouter> }
