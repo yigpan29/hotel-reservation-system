@@ -50,7 +50,14 @@ public class StripeGateway implements PaymentGateway {
         catch (StripeException e) { throw unavailable(); }
     }
     public RefundResult refund(String id, String key) {
-        try { var r = Refund.create(Map.of("payment_intent", id), options(key)); return new RefundResult(r.getId(),r.getStatus()); }
+        try {
+            // Recover an unknown refund response even after Stripe's idempotency retention window.
+            for(var existing:Refund.list(Map.of("payment_intent",id,"limit",100),options(null)).getData()) {
+                if(key.equals(existing.getMetadata().get("checkout_operation"))) return new RefundResult(existing.getId(),existing.getStatus());
+            }
+            var r = Refund.create(Map.of("payment_intent", id,"metadata",Map.of("checkout_operation",key)), options(key));
+            return new RefundResult(r.getId(),r.getStatus());
+        }
         catch (StripeException e) { throw unavailable(); }
     }
     public RefundResult retrieveRefund(String id) {

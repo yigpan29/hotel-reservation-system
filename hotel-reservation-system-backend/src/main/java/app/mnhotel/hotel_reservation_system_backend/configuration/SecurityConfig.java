@@ -23,10 +23,11 @@ public class SecurityConfig {
     @Bean HttpSessionSecurityContextRepository contextRepository(){return new HttpSessionSecurityContextRepository();}
     @Bean HttpSessionCsrfTokenRepository csrfRepository(){return new HttpSessionCsrfTokenRepository();}
     @Bean SecurityFilterChain security(HttpSecurity http,ObjectMapper json,HttpSessionSecurityContextRepository context,HttpSessionCsrfTokenRepository csrf) throws Exception {
-        http.csrf(c->c.csrfTokenRepository(csrf))
+        http.csrf(c->c.csrfTokenRepository(csrf).ignoringRequestMatchers("/api/checkouts/stripe-webhook"))
           .securityContext(c->c.securityContextRepository(context))
           .authorizeHttpRequests(a->a
             .requestMatchers("/api/auth/csrf","/api/auth/register","/api/auth/login","/api/health","/error").permitAll()
+            .requestMatchers(HttpMethod.POST,"/api/checkouts/stripe-webhook").permitAll()
             .requestMatchers(HttpMethod.GET,"/api/hotels/**","/api/rooms/availability").permitAll()
             .requestMatchers("/api/admin/**").hasRole("ADMIN")
             .requestMatchers("/api/**").authenticated().anyRequest().denyAll())

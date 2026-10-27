@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 import app.mnhotel.hotel_reservation_system_backend.entity.Reservation;
 public interface ReservationRepository extends JpaRepository<Reservation,Long> {
-    @Query("select count(r)>0 from Reservation r where r.room.id=:roomId and r.status='CONFIRMED' and r.startDate<:end and r.endDate>:start")
+    @Query(value="SELECT (EXISTS(SELECT 1 FROM reservations r WHERE r.room_id=:roomId AND r.status='CONFIRMED' AND r.start_date<:end AND r.end_date>:start) OR EXISTS(SELECT 1 FROM checkouts c WHERE c.room_id=:roomId AND c.start_date<:end AND c.end_date>:start AND (c.stage='FINALIZING' OR (c.stage='PENDING' AND c.expires_at>now()))))",nativeQuery=true)
     boolean overlaps(Long roomId,LocalDateTime start,LocalDateTime end);
     @Lock(LockModeType.PESSIMISTIC_WRITE) @Query("select r from Reservation r where r.id=:id")
     Optional<Reservation> lockById(Long id);
