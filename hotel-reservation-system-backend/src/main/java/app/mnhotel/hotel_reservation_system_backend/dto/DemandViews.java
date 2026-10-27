@@ -5,7 +5,8 @@ import java.util.List;
 
 public final class DemandViews {
     private DemandViews() {}
-    public record Context(Long hotelId,String dataKind,long currentActiveRooms,long invalidStayRecords,List<String> limitations) {}
+    public record Context(Long hotelId,String dataKind,long currentActiveRooms,long invalidStayRecords,List<String> limitations,
+        long syntheticReservations,long operationalReservations,List<String> syntheticBatches) {}
     public record Day(LocalDate date,long roomNights,BigDecimal capacityReferencePercent) {}
     public record Summary(long totalReservations,long confirmedReservations,long cancelledReservations,long unknownStateReservations,
         long roomNights,BigDecimal dailyAverage,BigDecimal capacityReferencePercent,long deduplicatedRoomNights,List<LocalDate> peakDates,List<LocalDate> lowDates) {}

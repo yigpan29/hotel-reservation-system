@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 public class DemandRepository {
     public record Daily(LocalDate date,long roomNights,long rawConfirmedNights) {}
     public record Counts(long total,long confirmed,long cancelled,long unknown) {}
+    public record Origin(long synthetic,long operational,List<String> batches) {}
     private final NamedParameterJdbcTemplate jdbc;
     public DemandRepository(NamedParameterJdbcTemplate jdbc){this.jdbc=jdbc;}
     private String hotel(Long id){return id==null?"":" AND rm.hotel_id=:hotelId ";}
@@ -44,4 +45,11 @@ public class DemandRepository {
     public LocalDate earliest(Long hotelId){return jdbc.queryForObject("SELECT min(r.start_date::date) FROM reservations r JOIN rooms rm ON rm.id=r.room_id WHERE "+VALID+" AND r.status IN ('CONFIRMED','CANCELLED') "+hotel(hotelId),params(hotelId,null,null),(r,n)->r.getDate(1)==null?null:r.getDate(1).toLocalDate());}
     public long invalid(Long hotelId){return jdbc.queryForObject("SELECT count(*) FROM reservations r LEFT JOIN rooms rm ON rm.id=r.room_id WHERE (rm.id IS NULL OR r.start_date IS NULL OR r.end_date IS NULL OR r.end_date::date<=r.start_date::date) "+hotel(hotelId),params(hotelId,null,null),Long.class);}
     public String database(){return jdbc.queryForObject("SELECT current_database()",Map.of(),String.class);}
+    public Origin origin(Long hotelId,LocalDate start,LocalDate end,LocalDate futureStart,LocalDate futureEnd){
+        var p=params(hotelId,start,end);p.put("futureStart",futureStart);p.put("futureEnd",futureEnd);
+        String overlap="(r.start_date::date<=:end AND r.end_date::date>:start)";
+        if(futureStart!=null)overlap="("+overlap+" OR (r.start_date::date<=:futureEnd AND r.end_date::date>:futureStart))";
+        String sql="select count(*) filter(where i.reservation_id is not null) synthetic,count(*) filter(where i.reservation_id is null) operational,array_agg(distinct b.code) filter(where b.code is not null) batches from reservations r join rooms rm on rm.id=r.room_id left join reservation_demo_items i on i.reservation_id=r.id left join reservation_demo_batches b on b.id=i.batch_id where "+VALID+hotel(hotelId)+" AND "+overlap;
+        return jdbc.queryForObject(sql,p,(r,n)->{var array=r.getArray("batches");return new Origin(r.getLong("synthetic"),r.getLong("operational"),array==null?List.of():Arrays.asList((String[])array.getArray()));});
+    }
 }

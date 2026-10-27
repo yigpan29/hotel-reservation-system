@@ -111,3 +111,13 @@ credenciales incorrectas, 403 CSRF/rol/propiedad, 404 inexistente/inactivo,
 409 duplicado, solapamiento o transición inválida. No se envía SQL ni stacktrace
 al cliente. El CRUD antiguo `/api/hotel/*` se sustituyó por el contrato único
 de esta tabla; se reutilizan entidades/repositorios y servicios de hotel existentes.
+
+## Procedencia de demanda HU-03 (solo ADMIN)
+
+GET /api/admin/demand/history y /api/admin/demand/forecast conservan sus filtros.
+El contexto incorpora syntheticReservations, operationalReservations y syntheticBatches.
+dataKind distingue OPERATIONAL, SYNTHETIC_DEMO y MIXED según el origen real de las
+reservas del hotel/período consultado. Forecast considera entrenamiento y horizonte
+sin duplicar reservas. No se expone identidad del propietario ni datos personales.
+No existe endpoint HTTP para cargar o revertir lotes. Véase
+[Historial sintético HU-03](HU03_HISTORIAL_SINTETICO.md).
