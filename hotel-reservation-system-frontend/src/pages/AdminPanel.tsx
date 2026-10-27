@@ -1,20 +1,22 @@
-import { useState, type FormEvent } from 'react'
+import { lazy, Suspense, useState, type FormEvent } from 'react'
 import { api, message } from '../api'
 import { useLoad } from '../useLoad'
 import type { Hotel, HotelInput, Room, RoomInput, Page, Reservation } from '../types'
 import ReservationList from '../components/ReservationList'
+const DemandPanel = lazy(() => import('../components/DemandPanel'))
 const emptyHotel: HotelInput = { name: '', location: '', description: '', rating: 0, active: true }
 export default function AdminPanel() {
   const [tab, setTab] = useState('hotels'), [hotelId, setHotelId] = useState(0)
   const hotels = useLoad<Hotel[]>('/admin/hotels')
   const selectedId = hotelId || hotels.data?.[0]?.id || 0
   return <section className="page"><h1 className="title">Administración</h1><div className="flex flex-wrap gap-3 mb-6" role="tablist" aria-label="Gestión administrativa">
-    {[['hotels', 'Hoteles'], ['rooms', 'Habitaciones'], ['reservations', 'Reservas']].map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? 'action' : 'border border-orange-300 rounded px-4 py-2'} onClick={() => setTab(key)}>{label}</button>)}</div>
+    {[['hotels', 'Hoteles'], ['rooms', 'Habitaciones'], ['reservations', 'Reservas'], ['demand', 'Previsión de demanda']].map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? 'action' : 'border border-orange-300 rounded px-4 py-2'} onClick={() => setTab(key)}>{label}</button>)}</div>
     {hotels.loading && <p role="status">Cargando inventario…</p>}{hotels.error && <p role="alert" className="notice-error">{hotels.error}</p>}
     {tab === 'hotels' && <HotelManager hotels={hotels.data || []} refresh={hotels.reload} />}
-    {tab !== 'hotels' && <label className="block mb-5">Hotel<select className="field" value={selectedId} onChange={e => setHotelId(Number(e.target.value))}>{!hotels.data?.length && <option value={0}>Crea un hotel primero</option>}{hotels.data?.map(h => <option key={h.id} value={h.id}>{h.name}{!h.active && ' (inactivo)'}</option>)}</select></label>}
+    {tab !== 'hotels' && tab !== 'demand' && <label className="block mb-5">Hotel<select className="field" value={selectedId} onChange={e => setHotelId(Number(e.target.value))}>{!hotels.data?.length && <option value={0}>Crea un hotel primero</option>}{hotels.data?.map(h => <option key={h.id} value={h.id}>{h.name}{!h.active && ' (inactivo)'}</option>)}</select></label>}
     {tab === 'rooms' && selectedId > 0 && <RoomManager key={selectedId} hotelId={selectedId} />}
     {tab === 'reservations' && <AdminReservations hotelId={selectedId} />}
+    {tab === 'demand' && <Suspense fallback={<p role="status">Cargando módulo de demanda…</p>}><DemandPanel hotels={hotels.data || []} /></Suspense>}
   </section>
 }
 function HotelManager({ hotels, refresh }: { hotels: Hotel[]; refresh(): void }) {
