@@ -1,4 +1,4 @@
-export interface DemandContext { hotelId: number | null; dataKind: 'OPERATIONAL' | 'SYNTHETIC_DEMO'; currentActiveRooms: number; invalidStayRecords: number; limitations: string[] }
+export interface DemandContext { hotelId: number | null; dataKind: 'OPERATIONAL' | 'SYNTHETIC_DEMO' | 'MIXED'; currentActiveRooms: number; invalidStayRecords: number; limitations: string[]; syntheticReservations: number; operationalReservations: number; syntheticBatches: string[] }
 export interface DemandHistory {
   context: DemandContext; startDate: string; endDate: string
   summary: { totalReservations: number; confirmedReservations: number; cancelledReservations: number; unknownStateReservations: number; roomNights: number; dailyAverage: number; capacityReferencePercent: number | null; deduplicatedRoomNights: number; peakDates: string[]; lowDates: string[] }

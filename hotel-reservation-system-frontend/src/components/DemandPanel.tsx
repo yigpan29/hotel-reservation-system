@@ -28,6 +28,9 @@ export default function DemandPanel({ hotels }: { hotels: Hotel[] }) {
   }, [query, revision])
   function filter(event: FormEvent) { event.preventDefault(); const params = new URLSearchParams(); if (hotel) params.set('hotelId', hotel); if (start) params.set('startDate', start); if (end) params.set('endDate', end); setQuery(params.toString()); setRevision(value => value + 1) }
   const history = result?.history, forecast = result?.forecast
+  const origins = result ? [result.history.context, result.forecast.context] : []
+  const hasSynthetic = origins.some(origin => origin.syntheticReservations > 0 || origin.dataKind === 'SYNTHETIC_DEMO' || origin.dataKind === 'MIXED')
+  const hasOperational = origins.some(origin => origin.operationalReservations > 0 || origin.dataKind === 'MIXED')
   return <section aria-labelledby="demand-heading" className="min-w-0 space-y-5">
     <h2 id="demand-heading" className="text-2xl font-bold">Previsión de demanda</h2>
     <p>Análisis informativo de noches de habitación. No cambia precios, reservas ni disponibilidad.</p>
@@ -41,7 +44,8 @@ export default function DemandPanel({ hotels }: { hotels: Hotel[] }) {
     {loading && <p role="status">Cargando análisis de demanda…</p>}
     {error && <div role="alert" className="notice-error">{error}{expired && <Link className="underline block" to="/login" state={{ from: '/admin' }}>Volver a iniciar sesión</Link>}<button className="underline block mt-2" onClick={() => setRevision(value => value + 1)}>Reintentar análisis</button></div>}
     {history && forecast && <>
-      <p className="rounded border border-orange-200 bg-orange-50 p-4 font-medium" role="note">{history.context.dataKind === 'SYNTHETIC_DEMO' ? 'Historial sintético · demostración aislada. No son operaciones reales.' : 'Datos operativos registrados en el sistema. El inventario puede pertenecer al catálogo educativo.'}</p>
+      <p className="rounded border border-orange-200 bg-orange-50 p-4 font-medium" role="note">{hasSynthetic && hasOperational ? 'Historial mixto: incluye datos sintéticos de demostración y registros operativos.' : hasSynthetic ? 'Incluye historial sintético de demostración educativa. No representa operaciones comerciales reales.' : 'Datos operativos registrados en el sistema. El inventario puede pertenecer al catálogo educativo.'}</p>
+      {history.context.syntheticReservations !== undefined && forecast.context.syntheticReservations !== undefined && <p className="text-sm" aria-label="Procedencia de los datos">Histórico consultado: {history.context.syntheticReservations} reservas sintéticas y {history.context.operationalReservations} operativas. Ventanas del modelo: {forecast.context.syntheticReservations} sintéticas y {forecast.context.operationalReservations} operativas. Lotes: {[...new Set([...history.context.syntheticBatches, ...forecast.context.syntheticBatches])].join(', ') || 'sin lotes etiquetados en estas ventanas'}.</p>}
       <p>Consulta: {history.context.hotelId === null ? 'todos los hoteles' : hotels.find(h => h.id === history.context.hotelId)?.name || 'Hotel #' + history.context.hotelId} · {history.startDate} a {history.endDate}</p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Indicadores históricos">
         {[['Reservas del período', String(history.summary.totalReservations)], ['Confirmadas', String(history.summary.confirmedReservations)], ['Canceladas', String(history.summary.cancelledReservations)], ['Noches reservadas', String(history.summary.roomNights)], ['Promedio diario de noches', number(history.summary.dailyAverage)], ['Ocupación orientativa (capacidad actual)', history.summary.capacityReferencePercent === null ? 'No disponible' : number(history.summary.capacityReferencePercent) + '%']].map(([title, value]) => <article key={title} className="panel"><h3 className="text-sm text-gray-600">{title}</h3><p className="text-2xl font-bold mt-2">{value}</p></article>)}

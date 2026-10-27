@@ -45,6 +45,8 @@ services:
     working_dir: /app
     environment:
       API_PROXY_TARGET: http://backend:3000
+      CHOKIDAR_USEPOLLING: 'true'
+      CHOKIDAR_INTERVAL: '1000'
     command: ["sh", "-c", "npm ci --no-audit --no-fund && npm run dev -- --host 0.0.0.0 --port 5173 --strictPort"]
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-5173}:5173"
