@@ -16,7 +16,7 @@ test('HU03: historial sintético, cálculo conocido, filtros, gráficos y capaci
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await login(page); await openDemand(page)
-  await expect(page.getByText('Historial sintético · demostración aislada. No son operaciones reales.')).toBeVisible()
+  await expect(page.getByText('Incluye historial sintético de demostración educativa. No representa operaciones comerciales reales.')).toBeVisible()
   await page.getByRole('combobox', { name: 'Hotel de demanda', exact: true }).selectOption({ label: 'HU03 · Historial sintético' })
   await page.getByRole('button', { name: 'Aplicar filtros' }).click()
   await expect(page.getByText('Consulta: HU03 · Historial sintético', { exact: false })).toBeVisible()
