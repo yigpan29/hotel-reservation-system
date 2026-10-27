@@ -6,8 +6,10 @@ for db in hotel_test hotel_adopt; do
 done
 diff -u /tmp/hotel_test.v2.sql /tmp/hotel_adopt.v2.sql
 psql -X -At -v ON_ERROR_STOP=1 -U hotel_test -d hotel_adopt -f /checks/schema/preserve-after.sql > /tmp/current-values.txt
-psql -X -At -v ON_ERROR_STOP=1 -U hotel_test -d hotel_adopt -c "SELECT sequencename || ':' || last_value::text FROM pg_sequences WHERE schemaname='public' ORDER BY sequencename" > /tmp/current-sequences.txt
+psql -X -At -v ON_ERROR_STOP=1 -U hotel_test -d hotel_adopt -c "SELECT sequencename || ':' || last_value::text FROM pg_sequences WHERE schemaname='public' AND sequencename<>'reservation_notifications_id_seq' ORDER BY sequencename" > /tmp/current-sequences.txt
 diff -u /tmp/legacy-values.txt /tmp/current-values.txt
 diff -u /tmp/legacy-sequences.txt /tmp/current-sequences.txt
 psql -X -v ON_ERROR_STOP=1 -U hotel_test -d hotel_adopt -c 'SELECT version,type,success FROM flyway_schema_history ORDER BY installed_rank;'
 echo V2_SCHEMA_EQUAL_AND_LEGACY_DATA_IDENTITIES_PRESERVED
+psql -X -v ON_ERROR_STOP=1 -U hotel_test -d hotel_adopt -c "DO \$\$ BEGIN IF (SELECT count(*) FROM reservation_notifications)<>0 THEN RAISE EXCEPTION 'Unexpected notification backfill'; END IF; END \$\$;"
+echo V4_NOTIFICATIONS_EMPTY_NO_RETROACTIVE_BACKFILL
