@@ -121,6 +121,8 @@ con React 18 según [documentación oficial](https://github.com/recharts/rechart
 El módulo se carga de forma diferida al abrir su pestaña. Gráfico histórico naranja;
 estimación azul discontinua y reservas futuras confirmadas naranja, con leyendas,
 fechas, ejes, tooltips, navegación accesible y tablas alternativas desplegables.
+Un período histórico de un solo día se representa con un punto visible, sin
+necesitar un segmento entre dos fechas.
 Se incluyen carga, reintento, filtros, ausencia de actividad, insuficiencia de datos,
 errores 400/403/500 y enlace a login por sesión expirada. Las respuestas anteriores
 se retiran al cambiar consulta y las peticiones obsoletas se abortan. El resto

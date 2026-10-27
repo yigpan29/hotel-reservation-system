@@ -393,7 +393,7 @@ en API y se muestran en UI. Guía: [HU03_PREVISION_DEMANDA](HU03_PREVISION_DEMAN
 
 Recharts 3.10.1 y react-is 18.3.1 se comprobaron contra npm y documentación oficial,
 sin cambiar React/Boot ni instalar herramientas globales. Carga diferida: build
-principal 194.91 kB; chunk del módulo 389.71 kB (114.24 kB gzip), descargado al abrir
+principal ~195 kB; chunk del módulo ~390 kB (~114 kB gzip), descargado al abrir
 la pestaña. No se incorpora otro framework ni una fórmula alternativa en React.
 
 ### Pruebas realmente ejecutadas
@@ -480,3 +480,18 @@ La CI existente ejecuta el mismo harness en PR hacia base; no necesita cambios
 para incluir las nuevas pruebas. El resultado remoto vigente se enlaza desde el
 PR del Issue #1. No se declara revisión/aprobación humana ni merge; esos pasos
 de la Definition of Done siguen pendientes del equipo.
+
+### Cierre de QA visual y primera CI remota HU-03
+
+La ejecución remota [40424992003](https://github.com/yigpan29/hotel-reservation-system/actions/runs/40424992003)
+del commit `c2dd659` pasó frontend e integración, con 37 Java y 8 E2E. PR abierto:
+[#7](https://github.com/yigpan29/hotel-reservation-system/pull/7), referencia Issue #1.
+No implica revisión humana, aprobación ni merge.
+
+La revisión final añadió una comprobación visual de un período válido de un día:
+se muestra su punto, en lugar de una línea sin segmento visible. No cambió ningún
+cálculo ni endpoint. TypeScript/lint/build y 8/8 E2E volvieron a pasar en
+`.local/hu03-single-day-frontend.log` y `.local/hu03-single-day-final.log`; captura
+`hu03-single-day.png` bajo `.local/isolated-artifacts/e2e/hu03-single-day-final/`.
+El último ajuste y esta evidencia se publican para sus checks completos de CI;
+el resultado vigente figura en el PR #7.
