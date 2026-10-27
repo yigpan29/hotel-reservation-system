@@ -179,3 +179,10 @@ Evidencias locales: .local/isolated/<fecha>, reportes JUnit en
 .local/isolated-artifacts/backend y HTML/capturas/trazas en
 .local/isolated-artifacts/e2e. CI adjunta esas evidencias como artifacts. La revisión,
 aprobación y merge por el equipo quedan pendientes; no se hace merge automático.
+
+## Historial autorizado de demostración en desarrollo
+
+La carga explícita del 27/10/2026 y su procedencia por lote se documentan en
+[Historial sintético HU-03](HU03_HISTORIAL_SINTETICO.md). V3 añade seguimiento
+reversible sin cambiar V1/V2 ni la fórmula. El fixture aislado descrito arriba
+sigue siendo independiente; ahora existe además el lote autorizado en hotel-bd.

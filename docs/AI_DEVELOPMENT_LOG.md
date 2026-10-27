@@ -495,3 +495,50 @@ cálculo ni endpoint. TypeScript/lint/build y 8/8 E2E volvieron a pasar en
 `hu03-single-day.png` bajo `.local/isolated-artifacts/e2e/hu03-single-day-final/`.
 El último ajuste y esta evidencia se publican para sus checks completos de CI;
 el resultado vigente figura en el PR #7.
+
+## 2026-10-27 — Historial sintético autorizado de HU-03
+
+Se continuó en `feat/hu-03-pronostico-demanda`, sobre `e62ba25`, con trabajo
+inicial limpio. Revisión enfocada de DemandService/Repository/Math, estados,
+esquema, Flyway y reloj Panamá: 13 hoteles, 72 habitaciones y una reserva reciente,
+sin actividad en las ocho semanas de entrenamiento. La fórmula no tenía un defecto
+y permanece intacta. No se repitió la auditoría histórica.
+
+| Actividad | Herramienta | Solicitud y resultado real | Decisión humana |
+|---|---|---|---|
+| Diagnóstico | Codex | Confirmar falta de histórico y fechas completas de referencia | El operador solicitó conservar la fórmula |
+| Diseño/carga | Codex | Generador transaccional, semilla 73003, seguimiento explícito V3, idempotencia y reversión segura | El prompt autorizó inserciones sintéticas y migración aditiva necesaria tras respaldo/prueba aislada |
+| Respaldo | Codex + PostgreSQL | Archivo custom privado, SHA-256, restauración aislada y comparación por fila; V3 preserva las seis tablas originales | Autorizado expresamente; sin publicar respaldo ni datos personales |
+| Desarrollo | Codex | Lote hu03-panama-history-v1: 936 reservas, 854 CONFIRMED/82 CANCELLED, 2779 noches, doce hoteles, 2026-08-03 a 2026-10-25 | Carga solicitada y autorizada en hotel-bd; cuenta técnica nueva USER |
+| Repetición | Codex | Mismo lote devuelve reused=true, mismas cantidades y ninguna fila original cambiada | Solicitada como criterio de aceptación |
+| Procedencia | Codex | Backend deriva SYNTHETIC_DEMO/MIXED/OPERATIONAL por relaciones reales y filtros; panel muestra origen y lote | Requisito explícito del operador |
+| Pruebas | Codex + JUnit/PostgreSQL/Playwright | 42 Java + 1 compatibilidad, 8 E2E, TypeScript/lint/build; todas satisfactorias | No equivale a revisión humana del código |
+| Navegador real | Codex + Chromium | Login/recarga, gráficos, 30 estimaciones, promedios, 13 filtros, móvil, logout y 401 posterior; sin 500/CSRF/JS | Operador autorizó ADMIN sintético temporal y su retirada, sin usar su cuenta personal |
+| Limpieza QA | Codex + PostgreSQL | Tras logout se verificó identidad/huella/dependencias y se eliminó únicamente el ADMIN temporal; propietario USER del lote permanece | Retirada explícitamente autorizada; ninguna cuenta existente cambió |
+| Corrección Docker | Codex | Archivo actualizado pero Vite servía el módulo anterior; sondeo Chokidar 1000 ms y recreación solo frontend resolvieron la caché | Dentro de la corrección necesaria para mostrar procedencia real |
+
+La referencia efectiva fue 2026-10-27: entrenamiento 2026-08-31 a 2026-10-25,
+horizonte 2026-10-28 a 2026-11-26. Ventana: 628 reservas (577 confirmadas/51
+canceladas), 1826 noches. Viernes: 521/8=65.13 noches, 90.46% de capacidad actual;
+miércoles: 75/8=9.38. Cero solapamientos confirmados, precios/fechas/cronología
+inválidos y filas del lote modificadas. El máximo diario sintético fue 71/72.
+Doce hoteles generan previsión; el hotel existente sin habitaciones continúa
+informando insuficiencia. Se conservó la reserva operativa, sin mezclarla
+silenciosamente con el historial etiquetado.
+
+Se corrigieron dos aserciones iniciales (versión de Flyway 3 y canceladas que
+pueden solaparse) y se repitió el harness completo. La prueba privada de navegador
+ajustó su selector para excluir SVG de leyendas y confirmó que la falta inicial
+del aviso nuevo era caché de Vite. No se desactivaron reglas ni seguridad.
+
+Evidencias, comandos, tablas por día, límites y reversión exclusiva en
+[HU03_HISTORIAL_SINTETICO.md](HU03_HISTORIAL_SINTETICO.md). Capturas versionadas
+contienen solamente gráficos agregados; respaldos, identidad temporal y credenciales
+quedan ignorados bajo .local. La contraseña temporal se retiró del archivo privado
+después de eliminar la cuenta. No se ejecutó reversión sobre desarrollo.
+
+Backend se recreó con Flyway automático desactivado tras aplicar únicamente V3;
+PostgreSQL no se reinició ni se eliminó su volumen. No se modificaron V1/V2,
+usuarios preexistentes, HU-01, HU-02, pagos, precios ni la rama base.
+PR #7 permanece destinado a base; la revisión humana, aprobación y merge
+corresponden al equipo. No se inventan aprobaciones ni se realiza merge automático.
