@@ -8,17 +8,19 @@ import app.mnhotel.hotel_reservation_system_backend.entity.*;
 import app.mnhotel.hotel_reservation_system_backend.dto.*;
 import app.mnhotel.hotel_reservation_system_backend.repository.*;
 import app.mnhotel.hotel_reservation_system_backend.exception.ApiException;
+import app.mnhotel.hotel_reservation_system_backend.service.NotificationService;
 @Service @Transactional
 public class ReservationServiceImp {
     private final RoomRepository rooms;private final ReservationRepository reservations;private final AuthServiceImp users;
-    public ReservationServiceImp(RoomRepository rooms,ReservationRepository reservations,AuthServiceImp users){this.rooms=rooms;this.reservations=reservations;this.users=users;}
+    private final NotificationService notifications;
+    public ReservationServiceImp(RoomRepository rooms,ReservationRepository reservations,AuthServiceImp users,NotificationService notifications){this.rooms=rooms;this.reservations=reservations;this.users=users;this.notifications=notifications;}
     public Views.ReservationView create(String username,Requests.ReservationInput input){
         long nights=RoomServiceImp.nights(input.startDate(),input.endDate());
         Room room=rooms.lockById(input.roomId()).orElseThrow(()->ApiException.missing("Habitación"));
         if(!room.getActive()||!room.getHotel().getActive()||room.getPricePerNight()==null||room.getPricePerNight()<0)throw ApiException.conflict("La habitación no está habilitada para nuevas reservas");
         if(reservations.overlaps(room.getId(),input.startDate().atStartOfDay(),input.endDate().atStartOfDay()))throw ApiException.conflict("La habitación ya está reservada en esas fechas");
         Reservation r=new Reservation();r.setRoom(room);r.setUser(users.require(username));r.setStartDate(input.startDate().atStartOfDay());r.setEndDate(input.endDate().atStartOfDay());r.setStatus("CONFIRMED");r.setCreatedAt(RoomServiceImp.now());r.setNightlyPrice(room.getPricePerNight());r.setTotalPrice(Math.multiplyExact(nights,room.getPricePerNight().longValue()));
-        return Views.reservation(reservations.saveAndFlush(r));
+        reservations.saveAndFlush(r);notifications.event(r,"CONFIRMED");return Views.reservation(r);
     }
     private void owns(Reservation r,String username,boolean admin){if(!admin&&!r.getUser().getUsername().equalsIgnoreCase(username))throw new ApiException(HttpStatus.FORBIDDEN,"No puedes acceder a una reserva ajena");}
     @Transactional(readOnly=true) public Views.ReservationView detail(Long id,String username,boolean admin){var r=reservations.findById(id).orElseThrow(()->ApiException.missing("Reserva"));owns(r,username,admin);return Views.reservation(r);}
@@ -26,7 +28,7 @@ public class ReservationServiceImp {
         var r=reservations.lockById(id).orElseThrow(()->ApiException.missing("Reserva"));owns(r,username,admin);
         if("CANCELLED".equals(r.getStatus()))return Views.reservation(r);
         if(!"CONFIRMED".equals(r.getStatus())||r.getStartDate()==null||r.getStartDate().toLocalDate().isBefore(RoomServiceImp.today()))throw ApiException.conflict("Esta reserva ya no se puede cancelar");
-        r.setStatus("CANCELLED");r.setCancelledAt(RoomServiceImp.now());return Views.reservation(r);
+        r.setStatus("CANCELLED");r.setCancelledAt(RoomServiceImp.now());notifications.event(r,"CANCELLED");return Views.reservation(r);
     }
     @Transactional(readOnly=true) public Page<Views.ReservationView> list(String username,boolean admin,Long userId,Long hotelId,Long roomId,String status,int page,int size){
         if(page<0||size<1||size>100)throw ApiException.bad("Paginación inválida (size entre 1 y 100)");
