@@ -3,7 +3,9 @@
 Aplicación React 18/TypeScript/Vite/Tailwind y Spring Boot 3.3.2/Java 17,
 PostgreSQL 17 y Flyway 10.20.1. Permite registro, sesión, búsqueda, disponibilidad,
 reserva/cancelación y gestión administrativa. No procesa pagos ni implementa
-HU-01, HU-02 o HU-03.
+HU-01 ni HU-02. HU-03 está disponible en Administración → Previsión de demanda;
+ver [método y demostración aislada](docs/HU03_PREVISION_DEMANDA.md). Una base sin
+ocho semanas de referencia muestra un aviso, no estimaciones fabricadas.
 
 ## Demostración aislada (opción recomendada para la presentación)
 

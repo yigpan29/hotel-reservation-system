@@ -117,4 +117,6 @@ Las pruebas `PanamaCatalogTests` usan únicamente `hotel_test`: autorización, d
 12/72, repetición, modificaciones manuales, reserva/precio histórico y rechazo de
 identidades ambiguas. El harness completo sigue ejecutando Maven, migraciones,
 TypeScript, lint, build y Playwright. Resultados ejecutados y estado operativo:
-[AI Development Log](AI_DEVELOPMENT_LOG.md). No se desarrollan HU-01, HU-02 ni HU-03.
+[AI Development Log](AI_DEVELOPMENT_LOG.md). El seeder de catálogo no genera historial
+de reservas. La demostración específica de HU-03 usa exclusivamente PostgreSQL
+aislado: [guía de previsión](HU03_PREVISION_DEMANDA.md). HU-01/HU-02 siguen excluidas.

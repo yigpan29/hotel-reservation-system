@@ -39,7 +39,10 @@ y por ejecución manual, con reportes como artifacts. No despliega a producción
 
 ## Exclusiones
 
-HU-01 (checkout acelerado/medios de pago), HU-02 (calendario interactivo avanzado)
-y HU-03 (pronósticos/gráficos de demanda) permanecen fuera de esta rama.
+HU-01 (checkout acelerado/medios de pago) y HU-02 (calendario interactivo avanzado)
+permanecen fuera de esta rama. HU-03 incorpora la pestaña administrativa
+**Previsión de demanda**, con histórico, promedio semanal de ocho semanas,
+gráficos y horizonte de 30 días. Es informativa y no modifica precios/inventario.
+Método, limitaciones y demo aislada: [HU03_PREVISION_DEMANDA.md](docs/HU03_PREVISION_DEMANDA.md).
 El histórico básico de reservas se conserva para el funcionamiento del sistema;
 no implementa esas historias individuales.
