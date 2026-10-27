@@ -345,3 +345,138 @@ efímeros del harness no se presentan como sustitutos.
 
 El catálogo y `yonielvegas` están listos; el cierre de ambas cuentas administrativas
 queda condicionado a esa entrada privada. HU-01/HU-02/HU-03 y pagos siguen excluidos.
+
+## HU-03 — Previsión de demanda (26/10/2026)
+
+Trabajo autorizado por el alcance actualizado del Issue #1, en
+`feat/hu-03-pronostico-demanda`, desde `e899442` (merge PR #4). `base` no se modifica.
+Las exclusiones de HU-03 de los registros anteriores corresponden a estabilización
+y catálogo: esta entrada registra su implementación independiente, expresamente
+solicitada ahora. HU-01/HU-02 y pagos siguen fuera de alcance.
+
+| Actividad | Herramienta IA | Solicitud y resultado real | Decisión humana |
+|---|---|---|---|
+| Auditoría | Codex, Git, lecturas y PostgreSQL READ ONLY | Rama/origen confirmados; reglas, panel y límites revisados antes de backend | Alcance del Issue #1 autorizado; revisión del informe pendiente |
+| Diseño | Codex | Promedio semanal de ocho semanas completas, Clock Panama, horizonte mañana/hoy+30, umbral mínimo y capacidad orientativa documentados | Método propuesto por el issue; revisión de detalles pendiente |
+| Backend | Codex, Java/Spring | Dos GET ADMIN, SQL agregado, DTOs sin identidades, transacciones readOnly/REPEATABLE_READ | Revisión del código pendiente |
+| Frontend | Codex, React/Recharts | Pestaña existente, indicadores, filtros, curvas interactivas, tablas y mensajes; sin rediseño | Revisión visual humana pendiente |
+| Datos de prueba | Codex, PostgreSQL aislado | Escenario etiquetado sintético: 132 noches, ocho cancelaciones en ventana, lunes 12/8=1.50 | Autorizado solo en aislamiento |
+| Testing | Codex, Maven/JUnit/Playwright | 37 Java, 8 E2E y validaciones frontend satisfactorias; detalles abajo | QA/revisión humana pendiente |
+| Debug | Codex y logs reales | Corregidos accesor ID del fixture, colisión de bean Clock y selector de combo de Playwright | No se deshabilitaron protecciones ni reglas |
+
+### Auditoría y decisiones
+
+Informe completo: [auditoría HU-03](auditorias/HU03_PREVISION_DEMANDA.md).
+La primera consulta no pudo ejecutarse porque Docker estaba apagado. Tras iniciar
+el daemon se completó READ ONLY: V1 BASELINE/V2 SQL success, 13 hoteles, 72
+habitaciones activas y una reserva CONFIRMED con entrada 26/10, salida 27/10 y
+creación 25/10. No se consultaron identidades. No existe historial suficiente de
+ocho semanas: la UI debe informar insuficiencia, no fabricar predicciones.
+
+Se reutilizaron sesiones, CSRF, `/api/admin/**`, panel, entidades e índices de V2.
+No se modificaron reglas de reservas ni seguridad, no se añadieron tablas o
+migraciones. Las consultas usan estancias (no creación), salida exclusiva,
+CONFIRMED y habitaciones distintas por día. Cancelaciones actuales se excluyen;
+datos inválidos, estados desconocidos y duplicaciones legacy se informan.
+
+El historial de capacidad y la ocupación efectiva no existen: los porcentajes
+son referencias expresamente orientativas con capacidad activa actual. Capacidad
+cero o demanda superior a referencia no produce una ocupación falsa ni recortes
+del conteo. No se generan recomendaciones o cambios automáticos de tarifas.
+
+Modelo: ocho lunes-domingos completos antes de la semana actual, 56 observaciones;
+sumar por día semanal y dividir entre ocho incluyendo ceros. HALF_UP a dos
+decimales, sin convertir medias en reservas. Requiere una estancia conocida que
+alcance el inicio y alguna noche confirmada en ventana; es un umbral mínimo, no
+garantía de cobertura ni de confianza estadística. Las limitaciones se devuelven
+en API y se muestran en UI. Guía: [HU03_PREVISION_DEMANDA](HU03_PREVISION_DEMANDA.md).
+
+Recharts 3.10.1 y react-is 18.3.1 se comprobaron contra npm y documentación oficial,
+sin cambiar React/Boot ni instalar herramientas globales. Carga diferida: build
+principal 194.91 kB; chunk del módulo 389.71 kB (114.24 kB gzip), descargado al abrir
+la pestaña. No se incorpora otro framework ni una fórmula alternativa en React.
+
+### Pruebas realmente ejecutadas
+
+Ejecución final limpia:
+`powershell -NoProfile -ExecutionPolicy Bypass -File tests/isolated/run.ps1`.
+Directorio `.local/isolated/20261026-182410/`, proceso exit 0.
+
+| Comprobación | Resultado |
+|---|---|
+| Maven clean verify | 36 pruebas, 0 fallos/errores/omitidas |
+| Compatibilidad Flyway adicional | 1 prueba correcta; total Java 37 |
+| Unitarias HU-03 | 5 métodos: ventanas, medias, ceros, 30 días, determinismo, capacidad y validación |
+| Integración HU-03 | 9 métodos sobre PostgreSQL: noches, checkout, estados, filtros, parámetros, permisos, datos legacy y snapshots de las seis tablas |
+| TypeScript / ESLint / build | Todos exit 0, sin relajar configuración |
+| Esquema limpio, adopción y preservación | Correctos, V1/V2 sin cambios |
+| Protecciones negativas de aislamiento | Sin baseline rechazado (1); URLs de desarrollo rechazadas (64), mensajes verificados |
+| Chromium | 8 pruebas correctas: 3 HU-03 y 5 de regresión completa |
+
+La matemática por estancias se verifica donde se ejecuta realmente, en las consultas
+PostgreSQL; las funciones puras verifican medias/fechas/decimales. La regresión
+incluye registro/login/logout, CSRF, roles, catálogo, inventario, reservas, cancelación
+y dos solicitudes concurrentes (201/409). No se presenta compilar como prueba funcional.
+
+El escenario exclusivo del harness exige hotel_test y usuario hotel_test, y el
+backend declara SYNTHETIC_DEMO. No se inserta historial en hotel-bd. El hotel
+`HU03 · Historial sintético` tiene cuatro habitaciones; 132 noches/56 =2.36,
+referencia 132/(56×4)=58.93%, lunes 12/8=1.50. Las cancelaciones no elevan demanda.
+Los E2E comprueban tooltip, 30 filas, filtros, períodos vacíos, insuficiencia,
+sesión expirada, fallo HTTP, USER, ausencia de errores de ejecución y móvil sin
+desbordamiento. Se revisaron visualmente gráficos naranja/azul y sus capturas.
+
+Capturas: `.local/isolated-artifacts/e2e/20261026-182410/test-results/`:
+`hu03-historical-chart.png`, `hu03-forecast-chart.png`, `hu03-forecast-desktop.png`,
+`hu03-empty-period.png`, `hu03-insufficient.png`, `hu03-mobile.png`.
+JUnit y HTML/trazas permanecen bajo `.local/isolated-artifacts/`, incluidos por CI
+como artifacts; no se publican datos personales ni respaldos de desarrollo.
+
+Se completó además la cobertura explícita de fallos de red: mensaje en español
+para fetch fallido, y prueba de fechas invertidas desde el formulario. La versión
+final del frontend se reconstruyó y pasó TypeScript, lint, build y nuevamente
+8/8 E2E: `.local/hu03-network-frontend-checks.log`, `.local/hu03-network-final.log`,
+reportes `.local/isolated-artifacts/e2e/hu03-network-final/`. El backend no cambió
+respecto a la ejecución limpia integral de 37 pruebas Java mencionada arriba.
+
+### Fallos conservados y corregidos
+
+- `.local/isolated/20261026-174803/`: compilación del fixture usaba id() sobre User;
+  se corrigió a getId(), sin cambiar el modelo ni la autenticación.
+- `.local/isolated/20261026-175143/`: arranque limpio falló por nombre demandClock
+  compartido por configuración/bean. Se renombró el bean a forecastClock; no se
+  habilitó sobrescritura de beans.
+- `.local/isolated/20261026-180747/`: 37 Java pasaron, pero un E2E no encontraba el
+  label exacto del select. Se usó el rol combobox con nombre accesible. Se conservaron
+  screenshot/trace del fallo; luego pasaron 8/8 en `hu03-locators-current` y desde
+  cero en la ejecución final. Sin aumentar retries, tiempos ni ocultar errores.
+
+### Activación de desarrollo y límites de la comprobación
+
+Tras las validaciones se recreó solo backend con HOTEL_MIGRATIONS_ENABLED=false
+para compilar/cargar HU-03. La primera sonda expiró durante Maven sobre el montaje
+Windows; los logs posteriores confirmaron arranque correcto y readiness 200. No
+se trató como una validación satisfactoria hasta comprobar las respuestas reales.
+No se repitió la recreación: no hacía falta modificar código ni datos.
+
+Evidencias `.local/hu03-development-activation.log` (sonda vencida) y
+`.local/hu03-development-http.log` (verificación posterior): health directo/proxy,
+catálogo y módulo React 200; ambos GET administrativos 401 sin sesión. Persisten
+13 hoteles, 72 habitaciones, una reserva y V1/V2. PostgreSQL/frontend no se
+recrearon; sus reinicios siguen en cero. La recuperación inicial de Docker inició
+los servicios por sus políticas existentes. No se cargaron reservas sintéticas,
+no se migró ni se alteró inventario de desarrollo. No se afirma una comparación
+completa de fingerprints de la primera activación: esa sonda venció antes de
+compararlos. Los snapshots que demuestran ausencia de escrituras en consultas
+HU-03 sí se ejecutaron satisfactoriamente en integración PostgreSQL aislada.
+
+No se usó una cuenta personal para automatización autenticada en desarrollo.
+La vista ADMIN completa se verificó en la instancia aislada. Tras recrear backend
+hay que volver a iniciar sesión en desarrollo, porque sus sesiones eran en memoria.
+`demo-admin` de desarrollo continúa pendiente por decisión anterior del operador;
+el usuario homónimo del harness es efímero y no lo sustituye.
+
+La CI existente ejecuta el mismo harness en PR hacia base; no necesita cambios
+para incluir las nuevas pruebas. El resultado remoto vigente se enlaza desde el
+PR del Issue #1. No se declara revisión/aprobación humana ni merge; esos pasos
+de la Definition of Done siguen pendientes del equipo.
