@@ -9,8 +9,8 @@ public interface NotificationRepository extends JpaRepository<ReservationNotific
     Page<ReservationNotification> findByUserId(Long userId,Pageable page);
     Optional<ReservationNotification> findByIdAndUserId(Long id,Long userId);
     long countByUserIdAndReadAtIsNull(Long userId);
-    @Modifying @Query("update ReservationNotification n set n.readAt=:now where n.id=:id and n.user.id=:userId and n.readAt is null")
+    @Modifying @Query("update ReservationNotification n set n.readAt=case when n.createdAt>:now then n.createdAt else :now end where n.id=:id and n.user.id=:userId and n.readAt is null")
     int readOne(Long id,Long userId,Instant now);
-    @Modifying @Query("update ReservationNotification n set n.readAt=:now where n.user.id=:userId and n.readAt is null")
+    @Modifying @Query("update ReservationNotification n set n.readAt=case when n.createdAt>:now then n.createdAt else :now end where n.user.id=:userId and n.readAt is null")
     int readAll(Long userId,Instant now);
 }

@@ -160,8 +160,8 @@ Las sesiones anteriores del backend eran en memoria: volver a iniciar sesión.
 
 ## Resultados reales y evidencias
 
-- Maven clean verify: **54 pruebas**, cero fallos; incluye tres de mensajes/calendario
-  y nueve de integración HU-05, más las 42 anteriores.
+- Maven clean verify: **55 pruebas**, cero fallos; incluye tres de mensajes/calendario
+  y diez de integración HU-05, más las 42 anteriores.
 - Compatibilidad Spring Boot/Flyway/PostgreSQL: **1 adicional**, satisfactoria.
 - V4 limpia, adopción legacy, repetición, valores/identidades y no backfill: satisfactorios.
 - TypeScript, ESLint y build: satisfactorios, repetidos con el frontend final.
@@ -192,3 +192,14 @@ del entorno aislado; el recordatorio fue generado por el programador real:
 ![Paginación móvil](evidencias/hu05/hu05-mobile-pagination.png)
 
 La revisión humana, aprobación e integración a base permanecen a cargo del equipo.
+
+### Revisión final de lecturas concurrentes
+
+La fecha de lectura usa el mayor valor entre el reloj y la creación del aviso.
+Esto evita un error de integridad si una notificación se confirma entre capturar
+la hora y ejecutar el UPDATE, o si el reloj retrocede. Una nueva regresión con
+Clock desplazado comprueba lectura individual/todas sin fechas anteriores a
+creación ni pérdida de idempotencia. Resultado final: 55 Maven + 1 compatibilidad.
+La repetición parcial inicial encontró fixtures E2E donde catálogo esperaba una
+base vacía; se verificó la precondición y se repitió sin modificar esas pruebas.
+Evidencia: .local/hu05-read-race-rerun.log; el intento previo queda conservado.

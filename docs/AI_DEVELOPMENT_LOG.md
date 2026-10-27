@@ -559,7 +559,7 @@ Desarrollo: PostgreSQL17.11, V1–V3, 937 reservas/936 sintéticas, sin notifica
 | Privacidad | API propia sin userId; ADMIN no tiene excepción; lectura/contador/paginación con sesión y CSRF | Requisitos de la historia |
 | Frontend | Centro /notifications, contador, lectura, enlaces a reserva, carga/vacío/errores y móvil | Conserva naranja y navegación existente |
 | Compatibilidad HU-03 | V4 añade FK; guardián de reversión reconoce la nueva relación y rechaza lotes/usuarios con avisos dependientes | Operador respondió: «Autorizar ajuste mínimo de compatibilidad»; no autoriza cambiar fórmula ni datos |
-| Pruebas | 54 Maven + 1 compatibilidad, 10 Playwright, TypeScript/lint/build; dos escenarios HU-05 repetidos sin limpiar: 2/2 | Resultados ejecutados; no equivalen a revisión humana |
+| Pruebas | 55 Maven + 1 compatibilidad, 10 Playwright, TypeScript/lint/build; dos escenarios HU-05 repetidos sin limpiar: 2/2 | Resultados ejecutados; no equivalen a revisión humana |
 | Desarrollo | Respaldo privado verificado y restaurado en base aislada; V4 probada en copia con ocho tablas idénticas | Operador respondió: «Autorizar V4 y actualización del backend» |
 | Aplicación autorizada | Solo V4 y recreación de backend con Flyway automático apagado; health UP, anon401, CSRF200, avisos0; 937 reservas/936 etiquetas intactas | Sin crear usuarios/reservas de prueba ni usar cuentas personales; PostgreSQL/frontend no reiniciados |
 
@@ -602,3 +602,14 @@ Las notificaciones son internas; no hay email/SMS/WhatsApp. El contador consulta
 cada 30 segundos y tras acciones/foco. No se recuperan recordatorios de días
 vencidos si el sistema estuvo apagado todo ese día. Revisión humana, aprobación
 e integración a base permanecen pendientes del equipo; no se hace merge automático.
+
+### HU-05: revisión final de concurrencia temporal
+
+Codex detectó por inspección una carrera posible al leer todas: un aviso nuevo
+podía tener created_at posterior a la hora capturada antes del UPDATE. Se usa
+CASE para read_at=max(reloj,created_at), conservando el primer read_at existente.
+La regresión nueva controla el reloj desplazado; 55 Maven y 1 compatibilidad
+pasaron. La repetición parcial previa falló solo por fixtures E2E en la base
+que catálogo esperaba vacía; se verificó ese requisito y se repitió, sin relajar
+ni cambiar las pruebas de catálogo. Logs de ambos intentos conservados bajo .local.
+No se cambia V4 ya aplicada: la corrección es del repositorio y sus pruebas.

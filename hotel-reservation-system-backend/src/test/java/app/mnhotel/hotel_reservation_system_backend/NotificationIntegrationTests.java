@@ -101,6 +101,12 @@ class NotificationIntegrationTests {
         mvc.perform(post("/api/notifications/read-all").session(owner)).andExpect(status().isForbidden());
         mvc.perform(post("/api/notifications/read-all").session(owner).with(csrf())).andExpect(status().isNoContent());assertThat(notices.count("notice-owner").unreadCount()).isZero();
     }
+    @Test void readingNeverPrecedesCreationEvenWithClockSkewOrConcurrentArrival(){
+        var r=book();clock.value.set(clock.instant().minusSeconds(30));notices.read("notice-owner",first());
+        bookings.cancel(r.id(),"notice-owner",false);clock.value.set(clock.instant().minusSeconds(30));notices.readAll("notice-owner");
+        assertThat(notices.count("notice-owner").unreadCount()).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from reservation_notifications where read_at<created_at",Long.class)).isZero();
+    }
     @Test void concurrentRemindersAndCancellationPreserveUniqueness()throws Exception{
         var r=book();var pool=Executors.newFixedThreadPool(3);var start=new CountDownLatch(1);
         try{List<Future<?>> futures=List.of(pool.submit(()->{await(start);reminders.generate();}),pool.submit(()->{await(start);reminders.generate();}),pool.submit(()->{await(start);bookings.cancel(r.id(),"notice-owner",false);}));start.countDown();for(var f:futures)f.get(20,TimeUnit.SECONDS);}finally{pool.shutdownNow();}
