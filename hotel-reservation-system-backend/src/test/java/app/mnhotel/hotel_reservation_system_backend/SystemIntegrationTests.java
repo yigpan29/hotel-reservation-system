@@ -53,7 +53,8 @@ class SystemIntegrationTests {
         return (MockHttpSession)result.getRequest().getSession(false);
     }
     Requests.ReservationInput input(){return new Requests.ReservationInput(roomId,start,end);}
-    Requests.GroupReservationInput guests(List<Long> roomIds,int adults,int children){return new Requests.GroupReservationInput(roomIds,start,end,adults,children);}
+    Requests.GroupRoomInput group(String type,int adults,int children){return new Requests.GroupRoomInput(type,adults,children);}
+    Requests.GroupReservationInput guests(List<Requests.GroupRoomInput> groups){return new Requests.GroupReservationInput(hotelId,groups,start,end);}
     ResultActions createGroup(MockHttpSession session,Requests.GroupReservationInput request) throws Exception {return mvc.perform(post("/api/reservations/group").session(session).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(request)));}
     ResultActions allocation(LocalDate from,LocalDate to,int adults,int children) throws Exception {return mvc.perform(get("/api/rooms/allocation").param("hotelId",hotelId.toString()).param("startDate",from.toString()).param("endDate",to.toString()).param("adults",String.valueOf(adults)).param("children",String.valueOf(children)));}
     ResultActions allocation(int adults,int children) throws Exception {return allocation(start,end,adults,children);}
@@ -201,29 +202,30 @@ class SystemIntegrationTests {
         allocation(4,0).andExpect(status().isOk()).andExpect(jsonPath("$.feasible").value(false))
             .andExpect(jsonPath("$.guests").value(4)).andExpect(jsonPath("$.maxRoomCapacity").value(2))
             .andExpect(jsonPath("$.minimumRooms").value(2)).andExpect(jsonPath("$.availableRooms").value(1))
-            .andExpect(jsonPath("$.rooms.length()").value(1)).andExpect(jsonPath("$.rooms[0].available").value(true))
+            .andExpect(jsonPath("$.types.length()").value(1)).andExpect(jsonPath("$.types[0].available").value(1))
             .andExpect(jsonPath("$.message").value("No hay habitaciones suficientes para alojar a 4 huéspedes. Se requieren al menos 2 habitaciones, pero solo hay 1 disponible para las fechas seleccionadas."));
     }
-    @Test void availableRoomsAreListedOneByOneWithCapacityPriceAndOccupancy() throws Exception {
+    @Test void availableRoomTypesCarryCapacityPriceAndFreeUnits() throws Exception {
+        rooms.save(null,new Requests.RoomInput(hotelId,"102","Doble",80,true));
         rooms.save(null,new Requests.RoomInput(hotelId,"201","Suite",200,true));
         allocation(4,2).andExpect(jsonPath("$.feasible").value(true)).andExpect(jsonPath("$.minimumRooms").value(2))
-            .andExpect(jsonPath("$.rooms.length()").value(2)).andExpect(jsonPath("$.availableCapacity").value(6))
-            .andExpect(jsonPath("$.rooms[0].roomNumber").value("101")).andExpect(jsonPath("$.rooms[0].capacity").value(2))
-            .andExpect(jsonPath("$.rooms[0].pricePerNight").value(80)).andExpect(jsonPath("$.rooms[0].totalPrice").value(160))
-            .andExpect(jsonPath("$.rooms[1].roomNumber").value("201")).andExpect(jsonPath("$.rooms[1].capacity").value(4));
-        allocation(7,0).andExpect(jsonPath("$.feasible").value(false)).andExpect(jsonPath("$.rooms.length()").value(2))
-            .andExpect(jsonPath("$.message").value("Las habitaciones disponibles para esas fechas admiten 6 huéspedes y la reserva necesita 7."));
-        // Una habitación ocupada se sigue mostrando, pero marcada para que el cliente no pueda elegirla.
+            .andExpect(jsonPath("$.types.length()").value(2)).andExpect(jsonPath("$.availableCapacity").value(8))
+            .andExpect(jsonPath("$.types[0].type").value("Doble")).andExpect(jsonPath("$.types[0].capacity").value(2))
+            .andExpect(jsonPath("$.types[0].available").value(2)).andExpect(jsonPath("$.types[0].pricePerNight").value(80))
+            .andExpect(jsonPath("$.types[0].totalPrice").value(160))
+            .andExpect(jsonPath("$.types[1].type").value("Suite")).andExpect(jsonPath("$.types[1].capacity").value(4))
+            .andExpect(jsonPath("$.types[1].available").value(1));
+        // Una unidad ocupada deja de contarse en su tipo; el tipo desaparece cuando no queda ninguna.
         reservations.create("owner",input());
-        allocation(4,2).andExpect(jsonPath("$.availableRooms").value(1)).andExpect(jsonPath("$.availableCapacity").value(4))
-            .andExpect(jsonPath("$.rooms[0].roomNumber").value("201")).andExpect(jsonPath("$.rooms[0].available").value(true))
-            .andExpect(jsonPath("$.rooms[1].roomNumber").value("101")).andExpect(jsonPath("$.rooms[1].available").value(false));
+        allocation(4,2).andExpect(jsonPath("$.availableRooms").value(2)).andExpect(jsonPath("$.types[0].available").value(1));
+        reservations.create("owner",new Requests.ReservationInput(jdbc.queryForObject("select id from rooms where room_number='102'",Long.class),start,end));
+        allocation(4,2).andExpect(jsonPath("$.types.length()").value(1)).andExpect(jsonPath("$.types[0].type").value("Suite"));
     }
     @Test void everyRoomNeedsOneAdultAndGuestCountsAreValidated() throws Exception {
         rooms.save(null,new Requests.RoomInput(hotelId,"102","Doble",80,true));
         allocation(1,3).andExpect(jsonPath("$.feasible").value(false))
             .andExpect(jsonPath("$.message").value("Cada habitación necesita al menos un adulto: 1 adulto no puede ocupar las 2 habitaciones necesarias para 4 huéspedes."));
-        allocation(2,2).andExpect(jsonPath("$.feasible").value(true)).andExpect(jsonPath("$.minimumRooms").value(2));
+        allocation(2,2).andExpect(jsonPath("$.feasible").value(true)).andExpect(jsonPath("$.types[0].available").value(2));
         for(String query:List.of("adults=0&children=0","adults=2&children=-1","adults=21&children=0"))
             mvc.perform(get("/api/rooms/allocation?hotelId="+hotelId+"&startDate="+start+"&endDate="+end+"&"+query)).andExpect(status().isBadRequest());
         mvc.perform(get("/api/rooms/allocation?hotelId="+hotelId+"&startDate="+end+"&endDate="+start+"&adults=2&children=0")).andExpect(status().isBadRequest());
@@ -234,33 +236,39 @@ class SystemIntegrationTests {
             .andExpect(jsonPath("$.message").value("No hay habitaciones disponibles para las fechas seleccionadas."));
         allocation(end,end.plusDays(1),2,0).andExpect(jsonPath("$.availableRooms").value(1)).andExpect(jsonPath("$.feasible").value(true));
     }
-    @Test void groupReservationSpreadsTheGuestsAmongTheChosenRooms() throws Exception {
+    @Test void eachGroupBooksOneUnitOfItsTypeWithItsOwnGuests() throws Exception {
         Long suite=rooms.save(null,new Requests.RoomInput(hotelId,"201","Suite",200,true)).id();
         var session=login("owner","Owner-test-123");
-        createGroup(session,guests(List.of(roomId,suite),4,2)).andExpect(status().isCreated()).andExpect(jsonPath("$.length()").value(2))
-            .andExpect(jsonPath("$[0].roomId").value(roomId)).andExpect(jsonPath("$[0].adults").value(1)).andExpect(jsonPath("$[0].children").value(1))
+        createGroup(session,guests(List.of(group("Doble",2,0),group("Suite",2,2)))).andExpect(status().isCreated()).andExpect(jsonPath("$.length()").value(2))
+            .andExpect(jsonPath("$[0].roomId").value(roomId)).andExpect(jsonPath("$[0].adults").value(2)).andExpect(jsonPath("$[0].children").value(0))
             .andExpect(jsonPath("$[0].totalPrice").value(160)).andExpect(jsonPath("$[1].roomId").value(suite))
-            .andExpect(jsonPath("$[1].adults").value(3)).andExpect(jsonPath("$[1].children").value(1)).andExpect(jsonPath("$[1].totalPrice").value(400));
+            .andExpect(jsonPath("$[1].adults").value(2)).andExpect(jsonPath("$[1].children").value(2)).andExpect(jsonPath("$[1].totalPrice").value(400));
         assertThat(jdbc.queryForObject("select sum(adults+children) from reservations",Integer.class)).isEqualTo(6);
-        allocation(2,0).andExpect(jsonPath("$.availableRooms").value(0));
-        createGroup(session,guests(List.of(roomId),2,0)).andExpect(status().isConflict());
+        allocation(2,0).andExpect(jsonPath("$.availableRooms").value(0)).andExpect(jsonPath("$.types.length()").value(0));
+        createGroup(session,guests(List.of(group("Doble",2,0)))).andExpect(status().isConflict());
         assertThat(jdbc.queryForObject("select count(*) from reservations",Integer.class)).isEqualTo(2);
     }
-    @Test void groupReservationRejectsInvalidGuestsRoomsAndHotels() throws Exception {
+    @Test void twoGroupsOfTheSameTypeNeedTwoFreeUnits() throws Exception {
         var session=login("owner","Owner-test-123");
-        Long otherHotel=hotels.save(null,new Requests.HotelInput("Second","Colón","Synthetic test hotel",3.0,true)).id();
-        Long foreign=rooms.save(null,new Requests.RoomInput(otherHotel,"301","Doble",70,true)).id();
-        Long second=rooms.save(null,new Requests.RoomInput(hotelId,"102","Doble",80,true)).id();
-        for(var request:List.of(guests(List.of(roomId),0,2),guests(List.of(roomId),2,-1),guests(List.of(),2,0),
-                guests(List.of(roomId,roomId),2,0),guests(List.of(roomId,second),1,1),guests(List.of(roomId,foreign),2,0)))
-            createGroup(session,request).andExpect(status().isBadRequest());
-        // La capacidad elegida se vuelve a comprobar aunque el cliente la haya validado en pantalla.
-        createGroup(session,guests(List.of(roomId),3,0)).andExpect(status().isConflict());
-        createGroup(new MockHttpSession(),guests(List.of(roomId),2,0)).andExpect(status().isUnauthorized());
-        mvc.perform(post("/api/reservations/group").session(session).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(guests(List.of(roomId),2,0)))).andExpect(status().isForbidden());
+        // Un solo "Doble" libre: dos grupos del mismo tipo no caben.
+        createGroup(session,guests(List.of(group("Doble",2,0),group("Doble",1,0)))).andExpect(status().isConflict());
         assertThat(jdbc.queryForObject("select count(*) from reservations",Integer.class)).isZero();
+        rooms.save(null,new Requests.RoomInput(hotelId,"102","Doble",90,true));
+        createGroup(session,guests(List.of(group("Doble",2,0),group("Doble",1,0)))).andExpect(status().isCreated())
+            .andExpect(jsonPath("$.length()").value(2)).andExpect(jsonPath("$[0].roomNumber").value("101"))
+            .andExpect(jsonPath("$[1].roomNumber").value("102")).andExpect(jsonPath("$[1].nightlyPrice").value(90));
+    }
+    @Test void groupReservationRejectsInvalidGuestsTypesAndOccupiedUnits() throws Exception {
+        var session=login("owner","Owner-test-123");
+        for(var request:List.of(guests(List.of(group("Doble",0,2))),guests(List.of(group("Doble",2,-1))),guests(List.of()),
+                guests(List.of(group("Doble",3,0))),guests(List.of(group("Inexistente",2,0))),guests(List.of(group("",2,0)))))
+            createGroup(session,request).andExpect(status().isBadRequest());
+        createGroup(new MockHttpSession(),guests(List.of(group("Doble",2,0)))).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/reservations/group").session(session).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(guests(List.of(group("Doble",2,0)))))).andExpect(status().isForbidden());
+        assertThat(jdbc.queryForObject("select count(*) from reservations",Integer.class)).isZero();
+        // La única unidad del tipo ya está reservada: el tipo deja de poder elegirse.
         reservations.create("other",input());
-        createGroup(session,guests(List.of(roomId),2,0)).andExpect(status().isConflict());
+        createGroup(session,guests(List.of(group("Doble",2,0)))).andExpect(status().isConflict());
         assertThat(jdbc.queryForObject("select count(*) from reservations",Integer.class)).isEqualTo(1);
     }
 }

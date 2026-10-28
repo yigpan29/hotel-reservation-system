@@ -3,20 +3,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import RoomDetails from './RoomDetails'
 import { AuthContext, type Session } from '../auth-context'
-import type { Allocation, Room } from '../types'
+import type { Allocation, Room, RoomType } from '../types'
 
 const start = '2026-11-10', end = '2026-11-12'
-const room = (id: number, type: string, price: number, capacity: number, available = true): Room =>
-  ({ id, hotelId: 1, hotelName: 'Hotel Demo 1', roomNumber: String(100 + id), type, pricePerNight: price, capacity, active: true, available, totalPrice: price * 2 })
-const doble = room(1, 'Doble', 80, 2), suite = room(2, 'Suite', 200, 4)
+const roomType = (name: string, capacity: number, available: number, price: number): RoomType =>
+  ({ type: name, capacity, available, pricePerNight: price, totalPrice: price * 2 })
+const doble = roomType('Doble', 2, 1, 80), suite = roomType('Suite', 4, 2, 200)
+const room: Room = { id: 1, hotelId: 1, hotelName: 'Hotel Demo 1', roomNumber: '101', type: 'Doble', pricePerNight: 80, capacity: 2, active: true, available: true, totalPrice: 160 }
 const blocked = 'No hay habitaciones suficientes para alojar a 9 huéspedes. Se requieren al menos 3 habitaciones, pero solo hay 2 disponibles para las fechas seleccionadas.'
 
-/** El cálculo es del backend: estas son sus respuestas para cada combinación de huéspedes. */
+/** El cálculo es del backend: estas son sus respuestas para cada total de huéspedes. */
 const freshPlans = (): Record<string, Partial<Allocation>> => ({
-  '2-0': { feasible: true, minimumRooms: 1, rooms: [doble, suite] },
-  '2-2': { feasible: true, minimumRooms: 1, rooms: [doble, suite] },
-  '1-1': { feasible: true, minimumRooms: 1, rooms: [doble, suite] },
-  '9-0': { feasible: false, minimumRooms: 3, rooms: [doble, suite], message: blocked },
+  '2-0': { feasible: true, minimumRooms: 1, availableRooms: 3, types: [doble, suite] },
+  '3-0': { feasible: true, minimumRooms: 1, availableRooms: 3, types: [doble, suite] },
+  '4-0': { feasible: true, minimumRooms: 1, availableRooms: 3, types: [doble, suite] },
+  '2-1': { feasible: true, minimumRooms: 1, availableRooms: 3, types: [doble, suite] },
+  '4-2': { feasible: true, minimumRooms: 2, availableRooms: 3, types: [doble, suite] },
+  '9-0': { feasible: false, minimumRooms: 3, availableRooms: 3, types: [doble, suite], message: blocked },
 })
 let plans = freshPlans(), calls: string[] = [], posted: unknown[] = []
 const allocationCalls = () => calls.filter(path => path.startsWith('/api/rooms/allocation'))
@@ -26,7 +29,7 @@ function mockBackend() {
   vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
     const path = String(url); calls.push(path)
     const body = (value: unknown, status = 200) => ({ ok: true, status, json: async () => value })
-    if (path.startsWith('/api/hotels/1/rooms')) return body([doble, suite])
+    if (path.startsWith('/api/hotels/1/rooms')) return body([room])
     if (path.startsWith('/api/hotels/1')) return body({ id: 1, name: 'Hotel Demo 1', location: 'Panamá', description: 'Inventario sintético', rating: null, active: true })
     if (path.startsWith('/api/auth/csrf')) return body({ token: 'synthetic', headerName: 'X-CSRF-TOKEN' })
     if (path.startsWith('/api/rooms/allocation')) {
@@ -34,7 +37,7 @@ function mockBackend() {
       const adults = Number(query.get('adults')), children = Number(query.get('children'))
       const plan = plans[adults + '-' + children] ?? plans['9-0']
       return body({ hotelId: 1, startDate: start, endDate: end, nights: 2, adults, children, guests: adults + children,
-        maxRoomCapacity: 4, availableRooms: 2, availableCapacity: 6, message: '', ...plan })
+        maxRoomCapacity: 4, availableCapacity: 10, availableRooms: 3, message: '', ...plan })
     }
     if (path.startsWith('/api/reservations/group')) { posted.push(JSON.parse(String(options?.body))); return body([{ id: 7 }, { id: 8 }], 201) }
     throw new Error('URL no simulada: ' + path)
@@ -46,13 +49,14 @@ function open(query = '?id=1&startDate=' + start + '&endDate=' + end) {
   render(<AuthContext.Provider value={session}><MemoryRouter initialEntries={['/productDetail' + query]}>
     <Routes><Route path="/productDetail" element={<RoomDetails />} /></Routes>
   </MemoryRouter></AuthContext.Provider>)
-  return screen.findByRole('article', { name: 'Habitación 101' })
+  return screen.findByRole('region', { name: 'Habitación 1' })
 }
-const card = (number: string) => screen.getByRole('article', { name: 'Habitación ' + number })
-const pick = (number: string) => fireEvent.click(screen.getByRole('button', { name: 'Seleccionar la habitación ' + number }))
-const drop = (number: string) => fireEvent.click(screen.getByRole('button', { name: 'Quitar la habitación ' + number }))
-const guestControl = (name: string) => screen.getByRole('button', { name }) as HTMLButtonElement
+const roomSection = (number: number) => screen.getByRole('region', { name: 'Habitación ' + number })
+const choose = (type: string, number: number) => fireEvent.click(screen.getByRole('button', { name: 'Elegir ' + type + ' en la habitación ' + number }))
+const guestControl = (name: string, number: number) => screen.getByRole('button', { name: name + ' de la habitación ' + number }) as HTMLButtonElement
 const continueButton = () => screen.getByRole('button', { name: 'Continuar al resumen' }) as HTMLButtonElement
+/** Intl separa la moneda con un espacio duro; se normaliza para comparar el total mostrado. */
+const total = () => (screen.getByText('Precio total:').parentElement?.textContent ?? '').replace(/\s/g, ' ')
 const recalculated = (query: string) => waitFor(() => expect(allocationCalls().some(path => path.includes(query))).toBe(true))
 
 beforeEach(() => {
@@ -62,94 +66,107 @@ beforeEach(() => {
 })
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals() })
 
-describe('RoomDetails · selección de habitaciones', () => {
-  it('muestra cada habitación con su capacidad y precio, sin elegir ninguna por el cliente', async () => {
+describe('RoomDetails · habitaciones y huéspedes', () => {
+  it('empieza con una habitación de dos adultos y pide elegir su tipo', async () => {
     await open()
     expect(allocationCalls()[0]).toBe('/api/rooms/allocation?hotelId=1&startDate=' + start + '&endDate=' + end + '&adults=2&children=0')
-    expect(card('101').textContent).toContain('hasta 2 huéspedes')
-    expect(card('102').textContent).toContain('hasta 4 huéspedes')
-    expect(screen.getByText(/hacen falta al menos 1 habitación/)).toBeTruthy()
-    expect(screen.getByText('Elige al menos una habitación para continuar.')).toBeTruthy()
-    expect(screen.getByText('Todavía no has elegido habitaciones.')).toBeTruthy()
+    expect(within(roomSection(1)).getByText('2 adultos · 2 huéspedes')).toBeTruthy()
+    expect(screen.queryByRole('region', { name: 'Habitación 2' })).toBeNull()
+    expect(screen.getByText('Habitación 1: Elige un tipo de habitación.')).toBeTruthy()
     expect(continueButton().disabled).toBe(true)
   })
 
-  it('suma la capacidad y el precio de lo elegido y habilita continuar al cubrir a todos', async () => {
+  it('solo ofrece los tipos que admiten a los huéspedes de cada habitación', async () => {
     await open()
-    fireEvent.click(guestControl('Agregar un niño'))
-    fireEvent.click(guestControl('Agregar un niño'))
-    await recalculated('adults=2&children=2')
-    pick('101')
-    expect(within(card('101')).getByText('Seleccionada · aporta 2 huéspedes')).toBeTruthy()
-    expect(screen.getByText('Faltan por cubrir 2 huéspedes.')).toBeTruthy()
-    expect(screen.getByText('Has elegido 1 habitación · capacidad 2 huéspedes · total USD 160.00')).toBeTruthy()
-    expect(continueButton().disabled).toBe(true)
-    pick('102')
-    expect(screen.getByText('Las habitaciones elegidas alojan a 4 huéspedes.')).toBeTruthy()
-    expect(screen.getByText('Has elegido 2 habitaciones · capacidad 6 huéspedes · total USD 560.00')).toBeTruthy()
+    expect(within(roomSection(1)).getByRole('article', { name: 'Doble para la habitación 1' })).toBeTruthy()
+    fireEvent.click(guestControl('Agregar un niño', 1))
+    await recalculated('adults=2&children=1')
+    expect(within(roomSection(1)).queryByRole('article', { name: 'Doble para la habitación 1' })).toBeNull()
+    expect(within(roomSection(1)).getByRole('article', { name: 'Suite para la habitación 1' })).toBeTruthy()
+  })
+
+  it('habilita continuar al elegir un tipo válido y actualiza el precio', async () => {
+    await open()
+    choose('Doble', 1)
+    expect(screen.getByText('Todo listo: 1 habitación para 2 huéspedes.')).toBeTruthy()
+    expect(total()).toContain('USD 160.00')
     expect(continueButton().disabled).toBe(false)
   })
 
-  it('permite quitar una habitación y vuelve a exigir cubrir a los huéspedes', async () => {
+  it('suelta el tipo elegido si deja de admitir a los huéspedes de esa habitación', async () => {
     await open()
-    pick('102')
-    expect(continueButton().disabled).toBe(false)
-    drop('102')
-    expect(screen.getByText('Elige al menos una habitación para continuar.')).toBeTruthy()
+    choose('Doble', 1)
+    fireEvent.click(guestControl('Agregar un niño', 1))
+    await recalculated('adults=2&children=1')
+    expect(screen.getByText('Habitación 1: Elige un tipo de habitación.')).toBeTruthy()
     expect(continueButton().disabled).toBe(true)
   })
 
-  it('no deja elegir más habitaciones que adultos', async () => {
+  it('agrega una segunda habitación con sus propios huéspedes y tipo', async () => {
     await open()
-    fireEvent.click(guestControl('Quitar un adulto'))
-    fireEvent.click(guestControl('Agregar un niño'))
-    await recalculated('adults=1&children=1')
-    pick('101')
-    pick('102')
-    expect(screen.getByText('Cada habitación necesita al menos un adulto: 1 adulto no puede ocupar 2 habitaciones.')).toBeTruthy()
-    expect(continueButton().disabled).toBe(true)
-    drop('101')
+    choose('Doble', 1)
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar habitación' }))
+    await recalculated('adults=4&children=0')
+    expect(screen.getByText('Habitación 2: Elige un tipo de habitación.')).toBeTruthy()
+    fireEvent.click(guestControl('Agregar un niño', 2))
+    fireEvent.click(guestControl('Agregar un niño', 2))
+    await recalculated('adults=4&children=2')
+    choose('Suite', 2)
+    expect(screen.getByText('Todo listo: 2 habitaciones para 6 huéspedes.')).toBeTruthy()
+    expect(total()).toContain('USD 560.00')
     expect(continueButton().disabled).toBe(false)
   })
 
-  it('no permite elegir una habitación ocupada', async () => {
-    plans['2-0'] = { feasible: true, minimumRooms: 1, rooms: [{ ...doble, available: false }, suite] }
+  it('exige unidades suficientes cuando dos habitaciones piden el mismo tipo', async () => {
     await open()
-    expect(within(card('101')).getByText('Ocupada en esas fechas')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Seleccionar la habitación 101' })).toBeNull()
-    pick('102')
+    choose('Doble', 1)
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar habitación' }))
+    await recalculated('adults=4&children=0')
+    choose('Doble', 2)
+    expect(screen.getByText('Habitación 1: Solo 1 de tipo Doble queda libre en esas fechas.')).toBeTruthy()
+    expect(continueButton().disabled).toBe(true)
+    choose('Suite', 2)
     expect(continueButton().disabled).toBe(false)
+  })
+
+  it('permite eliminar una habitación', async () => {
+    await open()
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar habitación' }))
+    await recalculated('adults=4&children=0')
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar la habitación 2' }))
+    await recalculated('adults=2&children=0')
+    expect(screen.queryByRole('region', { name: 'Habitación 2' })).toBeNull()
   })
 
   it('bloquea con un mensaje claro cuando la disponibilidad no alcanza', async () => {
     await open()
-    for (let step = 0; step < 7; step++) fireEvent.click(guestControl('Agregar un adulto'))
+    for (let step = 0; step < 7; step++) fireEvent.click(guestControl('Agregar un adulto', 1))
     expect(await screen.findByText(blocked)).toBeTruthy()
     expect(continueButton().disabled).toBe(true)
   })
 
-  it('confirma enviando las habitaciones elegidas y vuelve a validar antes de guardar', async () => {
+  it('confirma enviando cada habitación con su tipo y sus huéspedes', async () => {
     await open()
-    pick('101')
+    choose('Doble', 1)
     fireEvent.click(continueButton())
     const summary = screen.getByRole('dialog', { name: 'Resumen de tu reserva' })
-    expect(summary.textContent).toContain('Doble 101')
+    expect(summary.textContent).toContain('Habitación 1 · Doble')
     expect(summary.textContent).toContain('2 adultos · 2 huéspedes')
     const before = allocationCalls().length
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar reserva' }))
     await waitFor(() => expect(posted).toHaveLength(1))
-    expect(posted[0]).toEqual({ roomIds: [1], startDate: start, endDate: end, adults: 2, children: 0 })
+    expect(posted[0]).toEqual({ hotelId: 1, rooms: [{ type: 'Doble', adults: 2, children: 0 }], startDate: start, endDate: end })
     expect(allocationCalls().length).toBe(before + 1)
     expect(await screen.findByText('#7, #8')).toBeTruthy()
   })
 
-  it('no reserva si una habitación elegida acaba de ocuparse', async () => {
+  it('no reserva si el tipo elegido acaba de agotarse', async () => {
     await open()
-    pick('101')
+    choose('Doble', 1)
     fireEvent.click(continueButton())
-    plans['2-0'] = { feasible: true, minimumRooms: 1, rooms: [{ ...doble, available: false }, suite] }
+    plans['2-0'] = { feasible: true, minimumRooms: 1, availableRooms: 2, types: [suite] }
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar reserva' }))
-    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Resumen de tu reserva' }).textContent).toContain('acaba de ocuparse'))
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Resumen de tu reserva' }).textContent).toContain('ya no admite'))
     expect(posted).toEqual([])
   })
 })

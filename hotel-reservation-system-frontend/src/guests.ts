@@ -15,11 +15,9 @@ export const changeGuests = (guests: Guests, field: keyof Guests, step: number):
   : { ...guests, children: clamp(guests.children + step, 0, maxChildren) }
 export const canChange = (guests: Guests, field: keyof Guests, step: number) => changeGuests(guests, field, step)[field] !== guests[field]
 
-/** Los huéspedes viven en la URL, como las fechas: recargar no pierde lo elegido ni admite valores inválidos. */
-export const readGuests = (params: URLSearchParams): Guests => ({
-  adults: params.has('adults') ? clamp(Number(params.get('adults')), minAdults, maxAdults) : defaultGuests.adults,
-  children: params.has('children') ? clamp(Number(params.get('children')) || 0, 0, maxChildren) : defaultGuests.children,
-})
+/** Huéspedes saneados desde texto (la URL): nunca negativos, nunca sin un adulto. */
+export const readAdults = (value: string | null) => value === null ? defaultGuests.adults : clamp(Number(value), minAdults, maxAdults)
+export const readChildren = (value: string | null) => value === null ? defaultGuests.children : clamp(Number(value) || 0, 0, maxChildren)
 
 export const adultsLabel = (adults: number) => plural(adults, 'adulto', 'adultos')
 export const childrenLabel = (children: number) => plural(children, 'niño', 'niños')

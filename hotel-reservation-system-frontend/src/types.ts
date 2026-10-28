@@ -6,8 +6,10 @@ export type RoomInput = Pick<Room, 'hotelId' | 'roomNumber' | 'type' | 'pricePer
 export interface Reservation { id: number; hotelId: number; hotelName: string; roomId: number; roomNumber: string; roomType: string | null; userId: number; username: string; startDate: string; endDate: string; status: string; adults: number | null; children: number | null; nightlyPrice: number | null; totalPrice: number | null; createdAt: string; cancelledAt: string | null }
 export interface OccupiedRange { startDate: string; endDate: string }
 export interface RoomOccupancy { roomId: number; hotelId: number; hotelName: string; roomNumber: string; type: string; pricePerNight: number | null; active: boolean; from: string; to: string; occupied: OccupiedRange[] }
-/** Referencia de habitaciones necesarias e inventario del hotel para unos huespedes y unas fechas. */
-export interface Allocation { hotelId: number; startDate: string; endDate: string; nights: number; adults: number; children: number; guests: number; maxRoomCapacity: number; minimumRooms: number; availableRooms: number; availableCapacity: number; feasible: boolean; message: string; rooms: Room[] }
+/** Un tipo de habitacion con su capacidad, su tarifa y las unidades libres durante toda la estadia. */
+export interface RoomType { type: string; capacity: number; available: number; pricePerNight: number; totalPrice: number }
+/** Referencia de habitaciones necesarias y tipos disponibles para unos huespedes y unas fechas. */
+export interface Allocation { hotelId: number; startDate: string; endDate: string; nights: number; adults: number; children: number; guests: number; maxRoomCapacity: number; minimumRooms: number; availableRooms: number; availableCapacity: number; feasible: boolean; message: string; types: RoomType[] }
 export interface Page<T> { content: T[]; number: number; totalPages: number; totalElements: number }
 export const money = (value: number | null) => value === null ? 'No registrado (legacy)' : new Intl.NumberFormat('es-PA', { style: 'currency', currency: 'USD' }).format(value)
 export const nightsBetween = (start: string, end: string) => Math.round((Date.parse(end) - Date.parse(start)) / 86400000)

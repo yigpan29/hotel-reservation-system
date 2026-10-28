@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canChange, changeGuests, defaultGuests, guestLabel, guestsLabel, maxAdults, maxChildren, minimumRooms, readGuests, roomsLabel, totalGuests } from './guests'
+import { canChange, changeGuests, defaultGuests, guestLabel, guestsLabel, maxAdults, maxChildren, minimumRooms, readAdults, readChildren, roomsLabel, totalGuests } from './guests'
 
 describe('contadores de huéspedes', () => {
   it('toda reserva conserva al menos un adulto', () => {
@@ -24,14 +24,20 @@ describe('contadores de huéspedes', () => {
   })
 })
 
-describe('huéspedes en la URL', () => {
-  it('sin parámetros usa la cantidad por defecto', () => expect(readGuests(new URLSearchParams(''))).toEqual(defaultGuests))
-  it('conserva lo elegido al recargar', () => expect(readGuests(new URLSearchParams('adults=3&children=2'))).toEqual({ adults: 3, children: 2 }))
-  it('corrige valores imposibles en lugar de confiar en la URL', () => {
-    expect(readGuests(new URLSearchParams('adults=0&children=-4'))).toEqual({ adults: 1, children: 0 })
-    expect(readGuests(new URLSearchParams('adults=99&children=99'))).toEqual({ adults: maxAdults, children: maxChildren })
-    expect(readGuests(new URLSearchParams('adults=dos&children=x'))).toEqual({ adults: 1, children: 0 })
-    expect(readGuests(new URLSearchParams('adults=2.7&children=1.9'))).toEqual({ adults: 2, children: 1 })
+describe('huéspedes leídos de texto', () => {
+  it('sin valor usa la cantidad por defecto', () => {
+    expect(readAdults(null)).toBe(defaultGuests.adults)
+    expect(readChildren(null)).toBe(defaultGuests.children)
+  })
+  it('conserva lo elegido', () => {
+    expect(readAdults('3')).toBe(3)
+    expect(readChildren('2')).toBe(2)
+  })
+  it('corrige valores imposibles en lugar de confiar en el texto', () => {
+    expect([readAdults('0'), readChildren('-4')]).toEqual([1, 0])
+    expect([readAdults('99'), readChildren('99')]).toEqual([maxAdults, maxChildren])
+    expect([readAdults('dos'), readChildren('x')]).toEqual([1, 0])
+    expect([readAdults('2.7'), readChildren('1.9')]).toEqual([2, 1])
   })
 })
 

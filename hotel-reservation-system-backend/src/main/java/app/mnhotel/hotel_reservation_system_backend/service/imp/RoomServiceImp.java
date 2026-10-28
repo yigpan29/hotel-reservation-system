@@ -77,17 +77,21 @@ public class RoomServiceImp {
         // Cada habitación exige un adulto: ningún adulto puede ocupar dos habitaciones a la vez.
         boolean feasible=needed>0&&needed<=adults;
         // El cliente elige una por una: se entrega el inventario con su disponibilidad, sin armar combinaciones.
-        var freeIds=free.stream().map(Room::getId).collect(java.util.stream.Collectors.toSet());
-        var listed=bookable.stream().sorted(Comparator.comparing((Room r)->freeIds.contains(r.getId())?0:1)
-            .thenComparingInt(Room::getPricePerNight).thenComparing(Room::getId))
-            .map(r->Views.room(r,freeIds.contains(r.getId()),Math.multiplyExact(nights,r.getPricePerNight().longValue()))).toList();
+        // Las unidades libres se agrupan por tipo: el cliente elige un tipo por habitación, no una unidad.
+        var byType=new LinkedHashMap<String,List<Room>>();
+        for(Room room:free)byType.computeIfAbsent(room.getType()==null?"Sin tipo":room.getType(),key->new ArrayList<>()).add(room);
+        var types=byType.entrySet().stream().map(entry->{
+            int price=entry.getValue().stream().mapToInt(Room::getPricePerNight).min().orElse(0);
+            int roomCapacity=entry.getValue().stream().mapToInt(RoomServiceImp::capacity).max().orElse(0);
+            return new Views.RoomTypeView(entry.getKey(),roomCapacity,entry.getValue().size(),price,Math.multiplyExact(nights,(long)price));
+        }).sorted(Comparator.comparing(Views.RoomTypeView::pricePerNight).thenComparing(Views.RoomTypeView::type)).toList();
         String message=feasible?""
             :availableRooms==0?"No hay habitaciones disponibles para las fechas seleccionadas."
             :minimumRooms>availableRooms?"No hay habitaciones suficientes para alojar a "+guests+" huéspedes. Se requieren al menos "+minimumRooms+" habitaciones, pero solo hay "+availableRooms+(availableRooms==1?" disponible":" disponibles")+" para las fechas seleccionadas."
             :needed==0?"Las habitaciones disponibles para esas fechas admiten "+availableCapacity+(availableCapacity==1?" huésped":" huéspedes")+" y la reserva necesita "+guests+"."
             :"Cada habitación necesita al menos un adulto: "+adults+(adults==1?" adulto no puede ocupar las ":" adultos no pueden ocupar las ")+needed+" habitaciones necesarias para "+guests+" huéspedes.";
         return new Views.AllocationView(hotelId,start,end,nights,adults,children,guests,maxRoomCapacity,minimumRooms,
-            availableRooms,availableCapacity,feasible,message,listed);
+            availableRooms,availableCapacity,feasible,message,types);
     }
     public Views.RoomView save(Long id,Requests.RoomInput input){
         var hotel=hotels.require(input.hotelId());Room room=id==null?new Room():rooms.lockById(id).orElseThrow(()->ApiException.missing("Habitación"));

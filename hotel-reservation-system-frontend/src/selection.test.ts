@@ -1,77 +1,101 @@
 import { describe, expect, it } from 'vitest'
-import { isSelected, lostRooms, missingGuests, selectedCapacity, selectedRooms, selectionComplete, selectionIssue, selectionNightly, selectionTotal, toggleRoom } from './selection'
-import type { Room } from './types'
+import { addRoom, chooseType, compatibleTypes, defaultRooms, maxRooms, readRooms, removeRoom, roomIssue, roomPrice, roomsGuests, roomsParam, selectionComplete, selectionIssue, selectionNightly, selectionTotal, setRoomGuests, unitsChosen, type RoomGroup } from './selection'
+import type { RoomType } from './types'
 
-const room = (id: number, type: string, price: number, capacity: number, available = true): Room =>
-  ({ id, hotelId: 1, hotelName: 'Hotel', roomNumber: String(100 + id), type, pricePerNight: price, capacity, active: true, available, totalPrice: price * 2 })
-const individual = room(1, 'Individual', 50, 1), doble = room(2, 'Doble', 80, 2), suite = room(3, 'Suite', 200, 4), busy = room(4, 'Doble', 80, 2, false)
-const rooms = [individual, doble, suite, busy]
-const four = { adults: 2, children: 2 }
+const type = (name: string, capacity: number, available: number, price: number): RoomType =>
+  ({ type: name, capacity, available, pricePerNight: price, totalPrice: price * 2 })
+const individual = type('Individual', 1, 1, 50), doble = type('Doble', 2, 1, 80), suite = type('Suite', 4, 2, 200)
+const types = [individual, doble, suite]
+const group = (adults: number, children: number, chosen = ''): RoomGroup => ({ adults, children, type: chosen })
 
-describe('elegir y quitar habitaciones', () => {
-  it('alterna una habitación sin tocar las demás', () => {
-    expect(toggleRoom(doble, [])).toEqual([2])
-    expect(toggleRoom(suite, [2])).toEqual([2, 3])
-    expect(toggleRoom(doble, [2, 3])).toEqual([3])
-    expect(isSelected([2, 3], 3)).toBe(true)
-    expect(isSelected([2], 3)).toBe(false)
+describe('habitaciones pedidas', () => {
+  it('empieza con una habitación de dos adultos', () => {
+    expect(defaultRooms()).toEqual([{ adults: 2, children: 0, type: '' }])
   })
-  it('no deja elegir una habitación ocupada', () => {
-    const selection = toggleRoom(busy, [])
-    expect(selection).toEqual([])
-    expect(toggleRoom(busy, [2])).toEqual([2])
+  it('agrega y elimina habitaciones sin tocar las demás', () => {
+    const two = addRoom([group(2, 0, 'Doble')])
+    expect(two).toEqual([group(2, 0, 'Doble'), group(2, 0)])
+    expect(removeRoom(two, 1)).toEqual([group(2, 0, 'Doble')])
+    expect(removeRoom(two, 0)).toEqual([group(2, 0)])
   })
-  it('mantiene el orden de la selección aunque se elija en desorden', () => {
-    expect(toggleRoom(individual, toggleRoom(suite, []))).toEqual([1, 3])
+  it('nunca deja la reserva sin habitaciones ni pasa del máximo', () => {
+    expect(removeRoom([group(2, 0)], 0)).toEqual([group(2, 0)])
+    const full = Array.from({ length: maxRooms }, () => group(1, 0))
+    expect(addRoom(full)).toBe(full)
+  })
+  it('suma los huéspedes de todas las habitaciones', () => {
+    expect(roomsGuests([group(2, 1), group(1, 2)])).toEqual({ adults: 3, children: 3 })
   })
 })
 
-describe('capacidad elegida y huéspedes por cubrir', () => {
-  it('suma sola la capacidad de lo elegido', () => {
-    expect(selectedCapacity(rooms, [])).toBe(0)
-    expect(selectedCapacity(rooms, [2])).toBe(2)
-    expect(selectedCapacity(rooms, [2, 3])).toBe(6)
-    expect(selectedRooms(rooms, [3, 2])).toEqual([suite, doble])
+describe('tipo de cada habitación', () => {
+  it('muestra solo los tipos que admiten a ese grupo', () => {
+    expect(compatibleTypes(types, group(1, 0)).map(item => item.type)).toEqual(['Individual', 'Doble', 'Suite'])
+    expect(compatibleTypes(types, group(2, 1)).map(item => item.type)).toEqual(['Suite'])
+    expect(compatibleTypes(types, group(3, 2))).toEqual([])
   })
-  it('informa cuántos huéspedes faltan y nunca baja de cero', () => {
-    expect(missingGuests(rooms, [], four)).toBe(4)
-    expect(missingGuests(rooms, [2], four)).toBe(2)
-    expect(missingGuests(rooms, [3], four)).toBe(0)
-    expect(missingGuests(rooms, [2, 3], four)).toBe(0)
+  it('elige y suelta el tipo de una sola habitación', () => {
+    const rooms = [group(2, 0), group(1, 0)]
+    expect(chooseType(rooms, 1, 'Doble')).toEqual([group(2, 0), group(1, 0, 'Doble')])
+    expect(chooseType([group(2, 0, 'Doble')], 0, 'Doble')).toEqual([group(2, 0)])
   })
-})
-
-describe('validación de la selección', () => {
-  it('pide al menos una habitación', () => {
-    expect(selectionIssue(rooms, [], four)).toBe('Elige al menos una habitación para continuar.')
-    expect(selectionComplete(rooms, [], four)).toBe(false)
+  it('suelta el tipo elegido si deja de admitir a los huéspedes', () => {
+    const rooms = [group(2, 0, 'Doble')]
+    expect(setRoomGuests(rooms, 0, types, { adults: 2, children: 1 })).toEqual([group(2, 1)])
+    expect(setRoomGuests(rooms, 0, types, { adults: 1, children: 0 })).toEqual([group(1, 0, 'Doble')])
   })
-  it('avisa cuando la capacidad no alcanza', () => {
-    expect(selectionIssue(rooms, [2], four)).toBe('Faltan por cubrir 2 huéspedes.')
-    expect(selectionIssue(rooms, [1], { adults: 2, children: 0 })).toBe('Faltan por cubrir 1 huésped.')
-  })
-  it('exige un adulto por habitación', () => {
-    expect(selectionIssue(rooms, [1, 2, 3], four)).toBe('Cada habitación necesita al menos un adulto: 2 adultos no pueden ocupar 3 habitaciones.')
-    expect(selectionIssue(rooms, [1, 2], { adults: 1, children: 2 })).toBe('Cada habitación necesita al menos un adulto: 1 adulto no puede ocupar 2 habitaciones.')
-  })
-  it('acepta la selección cuando cubre a todos sin romper la ocupación', () => {
-    expect(selectionIssue(rooms, [2, 3], four)).toBe('')
-    expect(selectionComplete(rooms, [2, 3], four)).toBe(true)
-    expect(selectionComplete(rooms, [3], four)).toBe(true)
-    expect(selectionComplete(rooms, [1], { adults: 1, children: 0 })).toBe(true)
+  it('cuenta cuántas habitaciones piden el mismo tipo', () => {
+    expect(unitsChosen([group(2, 0, 'Suite'), group(1, 0, 'Suite'), group(1, 0, 'Doble')], 'Suite')).toBe(2)
   })
 })
 
-describe('precio y disponibilidad de lo elegido', () => {
-  it('se actualiza con cada habitación', () => {
-    expect(selectionTotal(rooms, [], 2)).toBe(0)
-    expect(selectionTotal(rooms, [2], 2)).toBe(160)
-    expect(selectionTotal(rooms, [2, 3], 2)).toBe(560)
-    expect(selectionNightly(rooms, [2, 3])).toBe(280)
+describe('validación antes de continuar', () => {
+  it('pide elegir un tipo para cada habitación', () => {
+    expect(roomIssue(types, [group(2, 0)], 0)).toBe('Elige un tipo de habitación.')
+    expect(selectionIssue(types, [group(2, 0, 'Doble'), group(1, 0)])).toBe('Habitación 2: Elige un tipo de habitación.')
+    expect(selectionComplete(types, [group(2, 0, 'Doble')])).toBe(true)
   })
-  it('señala las habitaciones elegidas que dejaron de estar libres', () => {
-    expect(lostRooms(rooms, [2])).toEqual([])
-    expect(lostRooms(rooms, [4])).toEqual([4])
-    expect(lostRooms([suite], [2])).toEqual([2])
+  it('avisa cuando ningún tipo admite al grupo', () => {
+    expect(roomIssue(types, [group(3, 2)], 0)).toBe('Ningún tipo disponible admite 5 huéspedes.')
+  })
+  it('exige unidades suficientes cuando varias habitaciones piden el mismo tipo', () => {
+    const twoDoble = [group(2, 0, 'Doble'), group(2, 0, 'Doble')]
+    expect(roomIssue(types, twoDoble, 0)).toBe('Solo 1 de tipo Doble queda libre en esas fechas.')
+    expect(selectionComplete(types, twoDoble)).toBe(false)
+    const twoSuite = [group(2, 2, 'Suite'), group(2, 2, 'Suite')]
+    expect(selectionComplete(types, twoSuite)).toBe(true)
+  })
+  it('avisa cuando se piden más habitaciones que las disponibles', () => {
+    expect(selectionIssue(types, [group(1, 0), group(1, 0), group(1, 0), group(1, 0), group(1, 0)]))
+      .toBe('Pediste 5 habitaciones y solo quedan 4 disponibles para las fechas seleccionadas.')
+  })
+  it('suelta el tipo que ya no existe en el cálculo nuevo', () => {
+    expect(roomIssue([suite], [group(2, 0, 'Doble')], 0)).toBe('El tipo Doble ya no admite 2 huéspedes.')
+  })
+})
+
+describe('precio de lo elegido', () => {
+  it('se actualiza con cada tipo elegido', () => {
+    expect(selectionTotal(types, [group(2, 0)], 2)).toBe(0)
+    expect(selectionTotal(types, [group(2, 0, 'Doble')], 2)).toBe(160)
+    expect(selectionTotal(types, [group(2, 0, 'Doble'), group(2, 2, 'Suite')], 2)).toBe(560)
+    expect(selectionNightly(types, [group(2, 0, 'Doble'), group(2, 2, 'Suite')])).toBe(280)
+    expect(roomPrice(types, group(2, 2, 'Suite'), 2)).toBe(400)
+  })
+})
+
+describe('habitaciones en la URL', () => {
+  it('conserva huéspedes y habitaciones al recargar', () => {
+    expect(roomsParam([group(2, 0, 'Doble'), group(1, 2)])).toBe('2-0_1-2')
+    expect(readRooms('2-0_1-2')).toEqual([group(2, 0), group(1, 2)])
+  })
+  it('sin valor o con basura usa la configuración por defecto', () => {
+    expect(readRooms(null)).toEqual(defaultRooms())
+    expect(readRooms('')).toEqual(defaultRooms())
+    expect(readRooms('x-y')).toEqual([group(1, 0)])
+    expect(readRooms('0--3')).toEqual([group(1, 0)])
+  })
+  it('no admite más habitaciones que el máximo', () => {
+    expect(readRooms(Array.from({ length: maxRooms + 4 }, () => '1-0').join('_'))).toHaveLength(maxRooms)
   })
 })

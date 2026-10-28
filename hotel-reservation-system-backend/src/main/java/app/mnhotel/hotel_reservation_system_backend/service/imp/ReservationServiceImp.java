@@ -11,8 +11,9 @@ import app.mnhotel.hotel_reservation_system_backend.repository.*;
 import app.mnhotel.hotel_reservation_system_backend.exception.ApiException;
 @Service @Transactional
 public class ReservationServiceImp {
-    private final RoomRepository rooms;private final ReservationRepository reservations;private final AuthServiceImp users;
-    public ReservationServiceImp(RoomRepository rooms,ReservationRepository reservations,AuthServiceImp users){this.rooms=rooms;this.reservations=reservations;this.users=users;}
+    private final RoomRepository rooms;private final ReservationRepository reservations;private final AuthServiceImp users;private final HotelServiceImp hotels;
+    public ReservationServiceImp(RoomRepository rooms,ReservationRepository reservations,AuthServiceImp users,HotelServiceImp hotels){this.rooms=rooms;this.reservations=reservations;this.users=users;this.hotels=hotels;}
+    private record Assignment(Requests.GroupRoomInput group,Room room) {}
     public Views.ReservationView create(String username,Requests.ReservationInput input){
         long nights=RoomServiceImp.nights(input.startDate(),input.endDate());
         Room room=rooms.lockById(input.roomId()).orElseThrow(()->ApiException.missing("Habitación"));
@@ -22,48 +23,49 @@ public class ReservationServiceImp {
         return Views.reservation(reservations.saveAndFlush(r));
     }
     /**
-     * Reserva de HU6: el cliente eligió las habitaciones y el backend valida, antes de confirmar, que entre
-     * todas quepan los huéspedes indicados y que sigan libres durante toda la estadía. El reparto por
-     * habitación lo decide el servidor: el cliente no distribuye huéspedes a mano.
+     * Reserva de HU6: el cliente configuró sus habitaciones (cada una con sus huéspedes) y eligió un tipo
+     * para cada una. El backend comprueba, antes de confirmar, que el tipo admita a ese grupo, que queden
+     * unidades suficientes de cada tipo y que sigan libres durante toda la estadía; luego asigna las
+     * unidades concretas, de la más barata a la más cara, y bloquea cada fila antes de insertar.
      */
     public List<Views.ReservationView> createGroup(String username,Requests.GroupReservationInput input){
         long nights=RoomServiceImp.nights(input.startDate(),input.endDate());
-        int adults=input.adults(),children=input.children(),guests=adults+children;
-        var ids=input.roomIds().stream().distinct().sorted().toList();
-        if(ids.size()!=input.roomIds().size())throw ApiException.bad("No se puede repetir una habitación en la misma reserva");
-        if(ids.size()>adults)throw ApiException.bad("Cada habitación necesita al menos un adulto: "+adults+(adults==1?" adulto no puede ocupar las ":" adultos no pueden ocupar las ")+ids.size()+" habitaciones elegidas");
-        var picked=new ArrayList<Room>();
-        // Bloqueo en orden de id para que dos solicitudes simultáneas no se crucen entre habitaciones.
-        for(Long id:ids){
-            Room room=rooms.lockById(id).orElseThrow(()->ApiException.missing("Habitación"));
-            if(!room.getActive()||!room.getHotel().getActive()||room.getPricePerNight()==null||room.getPricePerNight()<0)throw ApiException.conflict("La habitación "+room.getRoomNumber()+" no está habilitada para nuevas reservas");
-            if(!picked.isEmpty()&&!room.getHotel().getId().equals(picked.get(0).getHotel().getId()))throw ApiException.bad("Todas las habitaciones deben pertenecer al mismo hotel");
-            if(reservations.overlaps(room.getId(),input.startDate().atStartOfDay(),input.endDate().atStartOfDay()))throw ApiException.conflict("La habitación "+room.getRoomNumber()+" ya está reservada en esas fechas");
-            picked.add(room);
+        var start=input.startDate().atStartOfDay();var end=input.endDate().atStartOfDay();
+        var hotel=hotels.require(input.hotelId());
+        if(!hotel.getActive())throw ApiException.missing("Hotel");
+        // Capacidad declarada por tipo y unidades libres, de la más barata a la más cara.
+        var capacities=new HashMap<String,Integer>();var free=new LinkedHashMap<String,ArrayDeque<Room>>();
+        for(Room room:rooms.findByHotelIdOrderById(input.hotelId()).stream()
+                .filter(r->r.getActive()&&r.getPricePerNight()!=null&&r.getPricePerNight()>=0)
+                .sorted(Comparator.comparingInt(Room::getPricePerNight).thenComparing(Room::getId)).toList()){
+            String type=room.getType()==null?"Sin tipo":room.getType();
+            capacities.merge(type,RoomServiceImp.capacity(room),Math::max);
+            if(!reservations.overlaps(room.getId(),start,end))free.computeIfAbsent(type,key->new ArrayDeque<>()).add(room);
         }
-        int capacity=picked.stream().mapToInt(RoomServiceImp::capacity).sum();
-        if(capacity<guests)throw ApiException.conflict("Las habitaciones elegidas admiten "+capacity+(capacity==1?" huésped":" huéspedes")+" y la reserva necesita "+guests);
-        int[][] split=distribute(picked,adults,children);
+        var assigned=new ArrayList<Assignment>();
+        for(var group:input.rooms()){
+            String type=group.type().trim();int guests=group.adults()+group.children();
+            Integer capacity=capacities.get(type);
+            if(capacity==null)throw ApiException.bad("El tipo "+type+" no existe en este hotel");
+            if(guests>capacity)throw ApiException.bad("Una habitación "+type+" admite "+capacity+(capacity==1?" huésped":" huéspedes")+" y se le asignaron "+guests);
+            var units=free.get(type);
+            if(units==null||units.isEmpty())throw ApiException.conflict("No quedan suficientes habitaciones de tipo "+type+" para las fechas seleccionadas");
+            assigned.add(new Assignment(group,units.poll()));
+        }
         var user=users.require(username);var created=new ArrayList<Views.ReservationView>();
-        for(int i=0;i<picked.size();i++){
-            Room room=picked.get(i);Reservation r=new Reservation();
-            r.setRoomType(room.getType());r.setRoom(room);r.setUser(user);r.setStartDate(input.startDate().atStartOfDay());r.setEndDate(input.endDate().atStartOfDay());
-            r.setStatus("CONFIRMED");r.setCreatedAt(RoomServiceImp.now());r.setAdults(split[0][i]);r.setChildren(split[1][i]);
+        // Bloqueo en orden de id para que dos solicitudes simultáneas no se crucen entre habitaciones.
+        for(var assignment:assigned.stream().sorted(Comparator.comparing(item->item.room().getId())).toList()){
+            Room room=rooms.lockById(assignment.room().getId()).orElseThrow(()->ApiException.missing("Habitación"));
+            if(!room.getActive()||!room.getHotel().getActive())throw ApiException.conflict("La habitación "+room.getRoomNumber()+" no está habilitada para nuevas reservas");
+            if(reservations.overlaps(room.getId(),start,end))throw ApiException.conflict("La habitación "+room.getRoomNumber()+" ya está reservada en esas fechas");
+            Reservation r=new Reservation();
+            r.setRoomType(room.getType());r.setRoom(room);r.setUser(user);r.setStartDate(start);r.setEndDate(end);
+            r.setStatus("CONFIRMED");r.setCreatedAt(RoomServiceImp.now());
+            r.setAdults(assignment.group().adults());r.setChildren(assignment.group().children());
             r.setNightlyPrice(room.getPricePerNight());r.setTotalPrice(Math.multiplyExact(nights,room.getPricePerNight().longValue()));
             created.add(Views.reservation(reservations.saveAndFlush(r)));
         }
         return List.copyOf(created);
-    }
-    /** Un adulto por habitación y el resto hasta la capacidad de cada una, empezando por las más amplias. */
-    static int[][] distribute(List<Room> picked,int adults,int children){
-        int size=picked.size();int[] grown=new int[size],kids=new int[size];Arrays.fill(grown,1);
-        var roomiest=java.util.stream.IntStream.range(0,size).boxed()
-            .sorted(Comparator.comparingInt(index->-RoomServiceImp.capacity(picked.get(index)))).toList();
-        int restAdults=adults-size,restChildren=children;
-        for(int index:roomiest){int room=RoomServiceImp.capacity(picked.get(index))-grown[index];int add=Math.min(restAdults,room);grown[index]+=add;restAdults-=add;}
-        for(int index:roomiest){int room=RoomServiceImp.capacity(picked.get(index))-grown[index]-kids[index];int add=Math.min(restChildren,room);kids[index]+=add;restChildren-=add;}
-        if(restAdults>0||restChildren>0)throw ApiException.conflict("Las habitaciones elegidas no admiten a todos los huéspedes");
-        return new int[][]{grown,kids};
     }
     private void owns(Reservation r,String username,boolean admin){if(!admin&&!r.getUser().getUsername().equalsIgnoreCase(username))throw new ApiException(HttpStatus.FORBIDDEN,"No puedes acceder a una reserva ajena");}
     @Transactional(readOnly=true) public Views.ReservationView detail(Long id,String username,boolean admin){var r=reservations.findById(id).orElseThrow(()->ApiException.missing("Reserva"));owns(r,username,admin);return Views.reservation(r);}

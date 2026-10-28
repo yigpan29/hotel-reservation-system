@@ -18,9 +18,9 @@ async function chooseDay(calendar: Locator, iso: string) {
   for (let step = 0; step < 12 && !(await header.innerText()).toLowerCase().includes(name + ' ' + year); step++) await calendar.getByRole('button', { name: 'Mes siguiente' }).click()
   await calendar.getByRole('button', { name: new RegExp('^' + day + ' de ' + name + ' de ' + year + ' · (disponible|solo salida)$') }).click()
 }
-const roomCard = (page: Page, number: string) => page.getByRole('article', { name: 'Habitación ' + number })
-const pickRoom = (page: Page, number: string) => page.getByRole('button', { name: 'Seleccionar la habitación ' + number }).click()
-const dropRoom = (page: Page, number: string) => page.getByRole('button', { name: 'Quitar la habitación ' + number }).click()
+const roomSection = (page: Page, number: number) => page.getByRole('region', { name: 'Habitación ' + number })
+const chooseType = (page: Page, type: string, number: number) => page.getByRole('button', { name: 'Elegir ' + type + ' en la habitación ' + number }).click()
+const guestStep = (page: Page, action: string, number: number) => page.getByRole('button', { name: action + ' de la habitación ' + number })
 
 test('navegador: CSRF, validaciones, duplicados, identidad y cierre de sesión', async ({ page, context }) => {
   await page.goto('/register')
@@ -103,10 +103,10 @@ test('cliente: registro, login, búsqueda, reserva, historial, cancelación y pe
   await chooseDay(calendar, future(12))
   await calendar.getByRole('button', { name: 'Confirmar fechas' }).click()
   await expect(calendar).toBeHidden()
-  await pickRoom(page, '101')
+  await chooseType(page, 'Doble', 1)
   await page.getByRole('button', { name: 'Continuar al resumen' }).click()
   const summary = page.getByRole('dialog', { name: 'Resumen de tu reserva' })
-  for (const text of ['Hotel Demo 1', 'Doble 101', '2 adultos', future(10), future(12), '160']) await expect(summary).toContainText(text)
+  for (const text of ['Hotel Demo 1', 'Habitación 1 · Doble', '2 adultos', future(10), future(12), '160']) await expect(summary).toContainText(text)
   await summary.getByRole('button', { name: 'Volver' }).click()
   await expect(summary).toBeHidden()
   await page.getByRole('button', { name: 'Continuar al resumen' }).click()
@@ -210,7 +210,7 @@ test('reserva: fechas en modal, disponibilidad por tipo y datos conservados al r
   // Con fechas ya elegidas el botón ofrece cambiarlas, no volver a seleccionarlas.
   await expect(page.getByRole('form', { name: 'Buscar disponibilidad' }).getByRole('button', { name: 'Cambiar fechas' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Seleccionar fechas' })).toHaveCount(0)
-  for (const text of ['Doble', 'Suite', 'Habitación 101', '2 habitaciones disponibles']) await expect(rooms).toContainText(text)
+  for (const text of ['Doble', 'Suite', 'hay 2 habitaciones disponibles']) await expect(rooms).toContainText(text)
   await expect(rooms.getByRole('link', { name: 'Iniciar sesión para reservar' }).first()).toBeVisible()
   // Las fechas viven en la URL: recargar no pierde lo elegido.
   await page.reload()
@@ -219,7 +219,7 @@ test('reserva: fechas en modal, disponibilidad por tipo y datos conservados al r
   await expect(page).toHaveURL(new RegExp('startDate=' + start))
 })
 
-test('huéspedes: capacidad acumulada al elegir habitaciones y bloqueo sin disponibilidad', async ({ page }) => {
+test('huéspedes: una habitación por grupo, tipos compatibles y unidades suficientes', async ({ page }) => {
   const name = 'guests-' + Date.now()
   await page.goto('/register')
   await page.getByLabel('Usuario', { exact: true }).fill(name)
@@ -234,35 +234,38 @@ test('huéspedes: capacidad acumulada al elegir habitaciones y bloqueo sin dispo
   await dialog.getByRole('button', { name: 'Confirmar fechas' }).click()
   const rooms = page.getByRole('region', { name: 'Habitaciones disponibles' })
   const continuar = page.getByRole('button', { name: 'Continuar al resumen' })
-  // Nueve huéspedes superan el inventario: se bloquea con el mensaje exacto de la historia.
-  for (let step = 0; step < 7; step++) await page.getByRole('button', { name: 'Agregar un adulto', exact: true }).click()
-  await expect(rooms.getByRole('alert')).toHaveText('No hay habitaciones suficientes para alojar a 9 huéspedes. Se requieren al menos 3 habitaciones, pero solo hay 2 disponibles para las fechas seleccionadas.')
+  // Por defecto, una habitación con dos adultos y ningún niño.
+  await expect(roomSection(page, 1)).toContainText('2 adultos · 2 huéspedes')
+  await expect(page.getByText('Habitación 1: Elige un tipo de habitación.')).toBeVisible()
+  await expect(continuar).toBeDisabled()
+  // Nueve huéspedes en una habitación superan el inventario: mensaje claro del backend.
+  for (let step = 0; step < 7; step++) await guestStep(page, 'Agregar un adulto', 1).click()
+  await expect(rooms).toContainText('No hay habitaciones suficientes para alojar a 9 huéspedes. Se requieren al menos 3 habitaciones, pero solo hay 2 disponibles para las fechas seleccionadas.')
+  await expect(rooms).toContainText('Ningún tipo disponible admite 9 huéspedes')
   await expect(continuar).toBeDisabled()
   await page.screenshot({ path: test.info().outputPath('guests-blocked.png'), fullPage: true })
-  // Dos adultos y dos niños: el sistema informa el mínimo, pero no elige ninguna habitación.
-  for (let step = 0; step < 7; step++) await page.getByRole('button', { name: 'Quitar un adulto', exact: true }).click()
-  for (let step = 0; step < 2; step++) await page.getByRole('button', { name: 'Agregar un niño', exact: true }).click()
-  await expect(rooms).toContainText('hacen falta al menos 1 habitación')
-  await expect(page.getByText('Elige al menos una habitación para continuar.')).toBeVisible()
-  await expect(continuar).toBeDisabled()
-  // Elegir la Doble no alcanza para cuatro huéspedes; al sumar la Suite sí.
-  await pickRoom(page, '101')
-  await expect(roomCard(page, '101')).toContainText('Seleccionada · aporta 2 huéspedes')
-  await expect(page.getByText('Faltan por cubrir 2 huéspedes.')).toBeVisible()
-  await expect(continuar).toBeDisabled()
-  await pickRoom(page, '102')
-  await expect(page.getByText('Las habitaciones elegidas alojan a 4 huéspedes.')).toBeVisible()
-  await expect(page.getByText('Has elegido 2 habitaciones · capacidad 6 huéspedes · total USD 400.00')).toBeVisible()
+  // Con tres huéspedes la Doble ya no aparece: solo quedan los tipos compatibles.
+  for (let step = 0; step < 7; step++) await guestStep(page, 'Quitar un adulto', 1).click()
+  await guestStep(page, 'Agregar un niño', 1).click()
+  await expect(roomSection(page, 1).getByRole('article', { name: 'Suite para la habitación 1' })).toBeVisible()
+  await expect(roomSection(page, 1).getByRole('article', { name: 'Doble para la habitación 1' })).toHaveCount(0)
+  await chooseType(page, 'Suite', 1)
+  await expect(page.getByText('Todo listo: 1 habitación para 3 huéspedes.')).toBeVisible()
   await expect(continuar).toBeEnabled()
-  await page.screenshot({ path: test.info().outputPath('guests-selection.png'), fullPage: true })
-  // Quitar una habitación vuelve a dejar huéspedes sin cubrir.
-  await dropRoom(page, '102')
-  await expect(page.getByText('Faltan por cubrir 2 huéspedes.')).toBeVisible()
+  // Una segunda habitación con sus propios huéspedes; del mismo tipo no queda otra unidad.
+  await page.getByRole('button', { name: 'Agregar habitación' }).click()
+  await expect(roomSection(page, 2)).toContainText('2 adultos · 2 huéspedes')
+  await chooseType(page, 'Suite', 2)
+  await expect(page.getByText('Habitación 1: Solo 1 de tipo Suite queda libre en esas fechas.')).toBeVisible()
   await expect(continuar).toBeDisabled()
-  await pickRoom(page, '102')
+  await chooseType(page, 'Doble', 2)
+  await expect(page.getByText('Todo listo: 2 habitaciones para 5 huéspedes.')).toBeVisible()
+  await expect(rooms).toContainText('Precio total: USD 400.00')
+  await expect(continuar).toBeEnabled()
+  await page.screenshot({ path: test.info().outputPath('guests-rooms.png'), fullPage: true })
   await continuar.click()
   const summary = page.getByRole('dialog', { name: 'Resumen de tu reserva' })
-  for (const text of ['Hotel Demo 1', 'Doble 101', 'Suite 102', '2 habitaciones · capacidad para 6 huéspedes', '2 adultos · 2 niños · 4 huéspedes', start, end])
+  for (const text of ['Hotel Demo 1', 'Habitación 1 · Suite', 'Habitación 2 · Doble', '2 adultos · 1 niño', '4 adultos · 1 niño · 5 huéspedes', start, end])
     await expect(summary).toContainText(text)
   await page.screenshot({ path: test.info().outputPath('guests-summary.png'), fullPage: true })
   await summary.getByRole('button', { name: 'Confirmar reserva', exact: true }).click()
@@ -270,9 +273,9 @@ test('huéspedes: capacidad acumulada al elegir habitaciones y bloqueo sin dispo
   await expect(page.getByText('¡Tu reserva está lista!')).toBeVisible()
   await expect(page.getByText(/Números de reserva: #\d+, #\d+/)).toBeVisible()
   await page.getByRole('link', { name: 'Ver mis reservas' }).click()
-  // El reparto entre las habitaciones elegidas lo hace el servidor: cada una conserva un adulto.
-  await expect(page.getByText('Huéspedes: 1 adulto · 2 niños · 3 huéspedes')).toBeVisible()
-  await expect(page.getByText('Huéspedes: 1 adulto · 1 huésped')).toBeVisible()
+  // Cada habitación conserva los huéspedes que el cliente configuró para ella.
+  await expect(page.getByText('Huéspedes: 2 adultos · 1 niño · 3 huéspedes')).toBeVisible()
+  await expect(page.getByText('Huéspedes: 2 adultos · 2 huéspedes')).toBeVisible()
   await page.screenshot({ path: test.info().outputPath('guests-reservation.png'), fullPage: true })
 })
 

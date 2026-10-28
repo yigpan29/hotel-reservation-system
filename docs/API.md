@@ -56,7 +56,7 @@ de reserva, solo las fechas que bloquean inventario.
 
 `/rooms/allocation` responde
 `{hotelId,startDate,endDate,nights,adults,children,guests,maxRoomCapacity,minimumRooms,
-availableRooms,availableCapacity,feasible,message,rooms}`. `adults` por defecto 2 y
+availableRooms,availableCapacity,feasible,message,types}`. `adults` por defecto 2 y
 `children` 0; se exige al menos 1 adulto, se rechazan cantidades negativas y el máximo es
 20 adultos y 20 niños. No se piden datos personales de los huéspedes: se registran en el
 check-in. Las fechas siguen las mismas reglas que una reserva (entrada no pasada, salida
@@ -64,11 +64,11 @@ posterior, 365 noches como máximo).
 
 `minimumRooms` es **solo una referencia**: el mínimo teórico según la mayor capacidad entre los
 tipos reservables del hotel (`maxRoomCapacity`). `availableRooms` y `availableCapacity`
-describen lo que está realmente libre durante **toda** la estadía. `rooms` es el inventario
-reservable del hotel, con disponibles primero y después por tarifa; cada habitación lleva su
-`capacity`, su `totalPrice` para esas noches y `available`, que es false si está ocupada en
-alguna noche de la estadía. El servidor **no elige ni combina habitaciones**: el cliente las
-elige una por una y la interfaz suma su capacidad hasta cubrir a todos los huéspedes. Cada habitación necesita al menos un adulto, así que nunca hacen
+describen las unidades libres durante **toda** la estadía. `types` agrupa esas unidades por
+tipo, de la tarifa más baja a la más alta: `{type,capacity,available,pricePerNight,totalPrice}`,
+donde `available` son las unidades libres de ese tipo y `totalPrice` su precio por la estadía.
+Un tipo sin unidades libres no aparece. El servidor **no elige ni combina habitaciones**: el
+cliente configura cada habitación con sus huéspedes y elige un tipo para cada una. Cada habitación necesita al menos un adulto, así que nunca hacen
 falta más habitaciones que adultos. Si no es posible alojar a todos, `feasible` es false y
 `message` explica el motivo, por ejemplo: «No hay habitaciones suficientes para alojar a 4
 huéspedes. Se requieren al menos 2 habitaciones, pero solo hay 1 disponible para las fechas
@@ -79,7 +79,7 @@ seleccionadas».
 | Método y ruta | Acceso / resultado |
 |---|---|
 | POST `/reservations` | Autenticado, CSRF; `{roomId,startDate,endDate}` → 201 reserva, sin huéspedes declarados |
-| POST `/reservations/group` | Autenticado, CSRF; `{roomIds,startDate,endDate,adults,children}` → 201 lista de reservas |
+| POST `/reservations/group` | Autenticado, CSRF; `{hotelId,rooms:[{type,adults,children}],startDate,endDate}` → 201 lista de reservas |
 | GET `/reservations/me?page=0&size=20` | Solo reservas propias |
 | GET `/reservations/{id}` | Propietario o ADMIN |
 | POST `/reservations/{id}/cancel` | Propietario o ADMIN, CSRF; actualiza y conserva fila |
@@ -104,16 +104,17 @@ repetida es idempotente y conserva su primer timestamp. Reservas ya iniciadas en
 días anteriores y estados legacy desconocidos devuelven 409 al cancelar.
 No hay borrado físico, pagos, checkout ni edición de fechas en esta versión.
 
-`/reservations/group` recibe las habitaciones que eligió el cliente y los huéspedes totales:
-crea una reserva por habitación y reparte los huéspedes entre ellas, un adulto en cada una y
-el resto hasta su capacidad empezando por las más amplias. El cliente no distribuye huéspedes
-por habitación. Antes de confirmar vuelve a validar en el backend las fechas, que cada
-habitación esté activa, que todas sean del mismo hotel, que no se repitan, que no haya más
-habitaciones que adultos y que todas estén libres durante toda la estadía. Devuelve 400 si la
-petición es inválida (huéspedes fuera de rango, habitaciones repetidas, de hoteles distintos
-o más habitaciones que adultos) y 409 si una habitación ya no está habilitada, acaba de
-reservarse o la capacidad elegida no alcanza para todos. `adults`/`children` quedan en null
-en las reservas creadas por `POST /reservations` y en las filas anteriores a V4.
+`/reservations/group` recibe una entrada por cada habitación que pidió el cliente, con sus
+huéspedes ya configurados y el tipo elegido para ellos: crea una reserva por habitación y
+guarda esos huéspedes tal cual, sin volver a repartirlos. El servidor asigna la unidad
+concreta de cada tipo, de la tarifa más baja a la más alta. Antes de confirmar valida de
+nuevo las fechas, que el hotel y sus habitaciones estén activos, que el tipo exista y admita
+a ese grupo, que queden tantas unidades libres como habitaciones se pidieron de ese tipo y
+que sigan libres durante toda la estadía, bloqueando cada fila antes de insertar. Devuelve
+400 si la petición es inválida (sin adultos, cantidades negativas, tipo inexistente o un
+grupo que no cabe en su tipo) y 409 si un tipo se agotó o una unidad acaba de reservarse.
+Cada habitación lleva al menos un adulto, así que ningún niño queda solo. `adults`/`children`
+quedan en null en las reservas creadas por `POST /reservations` y en las filas anteriores a V4.
 
 Confirmar bloquea la fila de habitación (`SELECT FOR UPDATE`) dentro de la
 transacción y consulta solapamientos antes de insertar. Dos estancias consecutivas

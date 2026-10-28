@@ -10,10 +10,12 @@ public final class Views {
     public record HotelView(Long id,String name,String location,String description,Double rating,Boolean active) {}
     public record RoomView(Long id,Long hotelId,String hotelName,String roomNumber,String type,Integer pricePerNight,
         Integer capacity,Boolean active,Boolean available,Long totalPrice) {}
-    /** Referencia de habitaciones necesarias e inventario del hotel para unos huespedes y unas fechas. */
+    /** Un tipo de habitacion con su capacidad, su tarifa y las unidades libres durante toda la estadia. */
+    public record RoomTypeView(String type,Integer capacity,Integer available,Integer pricePerNight,Long totalPrice) {}
+    /** Referencia de habitaciones necesarias y tipos disponibles para unos huespedes y unas fechas. */
     public record AllocationView(Long hotelId,LocalDate startDate,LocalDate endDate,Long nights,Integer adults,
         Integer children,Integer guests,Integer maxRoomCapacity,Integer minimumRooms,Integer availableRooms,
-        Integer availableCapacity,Boolean feasible,String message,java.util.List<RoomView> rooms) {}
+        Integer availableCapacity,Boolean feasible,String message,java.util.List<RoomTypeView> types) {}
     public record OccupiedRange(LocalDate startDate,LocalDate endDate) {}
     public record RoomAvailabilityView(Long roomId,Long hotelId,String hotelName,String roomNumber,String type,
         Integer pricePerNight,Boolean active,LocalDate from,LocalDate to,java.util.List<OccupiedRange> occupied) {}
