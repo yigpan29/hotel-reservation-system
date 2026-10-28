@@ -49,6 +49,11 @@ de gráficos Recharts. Guía y resultados esperados:
 `-SkipBuild` solo reutiliza imágenes que ya reflejan las fuentes actuales.
 `-SkipE2E` omite demo/navegador, manteniendo DB/JUnit/frontend.
 
+El chequeo de arranque limpio espera hasta 120 segundos al endpoint de salud,
+con consultas HTTP acotadas. Falla antes si termina el proceso y sigue exigiendo
+un catálogo vacío. Esto permite arranques lentos de Docker sin omitir migraciones
+ni presentar un timeout como una ejecución correcta.
+
 ## Aislamiento y acceso manual
 
 PostgreSQL, backend y runners solo pertenecen a la red interna propia. El
