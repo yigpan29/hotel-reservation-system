@@ -123,9 +123,13 @@ describe('RoomDetails · habitaciones y huéspedes', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Agregar habitación' }))
     await recalculated('adults=4&children=0')
     choose('Doble', 2)
-    expect(screen.getByText('Habitación 1: Solo 1 de tipo Doble queda libre en esas fechas.')).toBeTruthy()
+    const alert = screen.getByRole('alert')
+    expect(alert.textContent).toContain('Habitación 1: Solo 1 de tipo Doble queda libre en esas fechas.')
+    expect(alert.textContent).toContain('Elige otro tipo de habitación o elimina una de las habitaciones solicitadas.')
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
     expect(continueButton().disabled).toBe(true)
     choose('Suite', 2)
+    expect(screen.queryByRole('alert')).toBeNull()
     expect(continueButton().disabled).toBe(false)
   })
 
@@ -141,8 +145,17 @@ describe('RoomDetails · habitaciones y huéspedes', () => {
   it('bloquea con un mensaje claro cuando la disponibilidad no alcanza', async () => {
     await open()
     for (let step = 0; step < 7; step++) fireEvent.click(guestControl('Agregar un adulto', 1))
-    expect(await screen.findByText(blocked)).toBeTruthy()
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain(blocked)
+    expect(alert.textContent).toContain('Agrega otra habitación o reduce la cantidad de huéspedes para continuar.')
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
     expect(continueButton().disabled).toBe(true)
+    for (let step = 0; step < 5; step++) fireEvent.click(guestControl('Quitar un adulto', 1))
+    await recalculated('adults=4&children=0')
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+    expect(continueButton().disabled).toBe(true)
+    choose('Suite', 1)
+    expect(continueButton().disabled).toBe(false)
   })
 
   it('confirma enviando cada habitación con su tipo y sus huéspedes', async () => {

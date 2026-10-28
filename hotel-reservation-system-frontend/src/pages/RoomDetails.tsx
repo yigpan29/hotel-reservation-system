@@ -15,6 +15,15 @@ const readStay = (params: URLSearchParams): Stay | null => {
   const start = params.get('startDate'), end = params.get('endDate')
   return isDay(start) && isDay(end) && start >= dateAfter(0) && end > start ? { start, end } : null
 }
+const isSelectionPrompt = (problem: string) => /^Habitación \d+: Elige un tipo de habitación\.$/.test(problem)
+const validationAdvice = (problem: string) => {
+  if (problem.includes('No hay habitaciones disponibles')) return 'Prueba con otras fechas para encontrar habitaciones libres.'
+  if (problem.includes('Solo ') && problem.includes('de tipo')) return 'Elige otro tipo de habitación o elimina una de las habitaciones solicitadas.'
+  if (problem.startsWith('Pediste ') && problem.includes('habitaciones')) return 'Elimina una habitación o prueba con otras fechas.'
+  if (problem.includes('Cada habitación necesita al menos un adulto')) return 'Agrega un adulto por habitación o reduce la cantidad de habitaciones.'
+  if (problem.includes('ya no admite')) return 'Elige un tipo con mayor capacidad o reduce la cantidad de huéspedes.'
+  return 'Agrega otra habitación o reduce la cantidad de huéspedes para continuar.'
+}
 export default function RoomDetails() {
   const [params, setParams] = useSearchParams(), path = useParams(), location = useLocation(), { user } = useAuth()
   const id = path.id || params.get('id') || ''
@@ -29,7 +38,12 @@ export default function RoomDetails() {
   const nights = stay ? nightsBetween(stay.start, stay.end) : 0
   const current = plan?.data ?? null, stale = plan !== null && plan.query !== query
   const types = current?.types ?? []
-  const issue = !current ? 'Buscando disponibilidad…' : stale ? 'Actualizando disponibilidad…' : selectionIssue(types, booked)
+  const selectionProblem = current && !stale ? selectionIssue(types, booked) : ''
+  const validationProblem = current && !stale
+    ? (!current.feasible ? current.message : isSelectionPrompt(selectionProblem) ? '' : selectionProblem)
+    : ''
+  const issue = !current ? 'Buscando disponibilidad…' : stale ? 'Actualizando disponibilidad…'
+    : !current.feasible ? current.message || 'La configuración no está disponible.' : selectionProblem
   const total = selectionTotal(types, booked, nights)
   useEffect(() => { if (done) success.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }) }, [done])
   // El cálculo se rehace solo: cambiar fechas, huéspedes o habitaciones vuelve a consultar al backend.
@@ -88,14 +102,18 @@ export default function RoomDetails() {
       {planError && <p role="alert" className="notice-error">{planError}</p>}
       {!current && !planError && <p role="status">Buscando disponibilidad…</p>}
       {current && <p role="status" className="mb-4 text-gray-700">{roomsLabel(booked.length)} para {guestsLabel(totalGuests(guests))}: hay {roomsLabel(current.availableRooms)} disponibles entre el {stay.start} y el {stay.end}.</p>}
-      {current && !stale && !current.feasible && <p role="alert" className="notice-error">{current.message}</p>}
+      {validationProblem && <div role="alert" className="notice-error mt-5" aria-live="polite">
+        <p className="font-semibold">Revisa la configuración de habitaciones y huéspedes</p>
+        <p className="mt-1">{validationProblem}</p>
+        <p className="mt-2"><strong>Sugerencia:</strong> {validationAdvice(validationProblem)}</p>
+      </div>}
       {current && booked.map((_room, index) => <RoomGroup key={index} types={types} rooms={booked} index={index} nights={nights}
         onGuests={value => remember(stay, setRoomGuests(booked, index, types, value))}
         onType={value => remember(stay, chooseType(booked, index, value))}
         onRemove={() => remember(stay, removeRoom(booked, index))} />)}
       {current && <div className="panel mt-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p role="status">{issue || 'Todo listo: ' + roomsLabel(booked.length) + ' para ' + guestsLabel(totalGuests(guests)) + '.'}</p>
+          {!validationProblem && <p role="status">{issue || 'Todo listo: ' + roomsLabel(booked.length) + ' para ' + guestsLabel(totalGuests(guests)) + '.'}</p>}
           <p className="text-gray-700">Precio total: <strong>{money(total)}</strong></p>
         </div>
         <div className="flex flex-wrap gap-3">

@@ -1,6 +1,6 @@
 import GuestSelector from './GuestSelector'
 import { guestsLabel, type Guests } from '../guests'
-import { compatibleTypes, roomGuests, roomIssue, stayPrice, type RoomGroup as Group } from '../selection'
+import { compatibleTypes, roomGuests, stayPrice, type RoomGroup as Group } from '../selection'
 import { money, type RoomType } from '../types'
 
 const glyphs = ['▥', '▤', '▦', '▧', '▨', '▩']
@@ -11,7 +11,7 @@ const glyphs = ['▥', '▤', '▦', '▧', '▨', '▩']
  */
 export default function RoomGroup({ types, rooms, index, nights, onGuests, onType, onRemove }: { types: RoomType[]; rooms: Group[]; index: number; nights: number; onGuests: (guests: Guests) => void; onType: (type: string) => void; onRemove: () => void }) {
   const room = rooms[index], name = 'la habitación ' + (index + 1)
-  const compatible = compatibleTypes(types, room), issue = roomIssue(types, rooms, index)
+  const compatible = compatibleTypes(types, room)
   return <section aria-label={'Habitación ' + (index + 1)} className="panel mt-6">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h3 className="text-xl font-bold">Habitación {index + 1}</h3>
@@ -19,8 +19,7 @@ export default function RoomGroup({ types, rooms, index, nights, onGuests, onTyp
         className="rounded border border-gray-300 px-4 py-1 hover:bg-gray-100" onClick={onRemove}>Eliminar</button>}
     </div>
     <div className="mt-3"><GuestSelector guests={roomGuests(room)} onChange={onGuests} name={name} hints={index === 0} /></div>
-    {!compatible.length ? <p role="alert" className="notice-error mt-4">Ningún tipo disponible admite {guestsLabel(room.adults + room.children)} en una sola habitación.</p>
-      : <><p className="mt-4 text-gray-700">Elige el tipo de habitación para estos huéspedes:</p>
+    {compatible.length > 0 && <><p className="mt-4 text-gray-700">Elige el tipo de habitación para estos huéspedes:</p>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-3">{compatible.map((type, position) => {
           const chosen = room.type === type.type
           return <article key={type.type} aria-label={type.type + ' para la habitación ' + (index + 1)}
@@ -37,7 +36,5 @@ export default function RoomGroup({ types, rooms, index, nights, onGuests, onTyp
             </div>
           </article>
         })}</div></>}
-    {/* Con un tipo ya elegido, el motivo se explica aquí; pedir que elija uno ya lo dice el título. */}
-    {room.type && issue && <p role="status" className="mt-3 text-gray-700">{issue}</p>}
   </section>
 }

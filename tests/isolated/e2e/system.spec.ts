@@ -240,8 +240,10 @@ test('huéspedes: una habitación por grupo, tipos compatibles y unidades sufici
   await expect(continuar).toBeDisabled()
   // Nueve huéspedes en una habitación superan el inventario: mensaje claro del backend.
   for (let step = 0; step < 7; step++) await guestStep(page, 'Agregar un adulto', 1).click()
-  await expect(rooms).toContainText('No hay habitaciones suficientes para alojar a 9 huéspedes. Se requieren al menos 3 habitaciones, pero solo hay 2 disponibles para las fechas seleccionadas.')
-  await expect(rooms).toContainText('Ningún tipo disponible admite 9 huéspedes')
+  const validation = rooms.getByRole('alert')
+  await expect(validation).toContainText('No hay habitaciones suficientes para alojar a 9 huéspedes. Se requieren al menos 3 habitaciones, pero solo hay 2 disponibles para las fechas seleccionadas.')
+  await expect(validation).toContainText('Agrega otra habitación o reduce la cantidad de huéspedes para continuar.')
+  await expect(rooms.getByRole('alert')).toHaveCount(1)
   await expect(continuar).toBeDisabled()
   await page.screenshot({ path: test.info().outputPath('guests-blocked.png'), fullPage: true })
   // Con tres huéspedes la Doble ya no aparece: solo quedan los tipos compatibles.
