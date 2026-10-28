@@ -31,6 +31,7 @@
         <flyway.version>10.20.1</flyway.version>
 	</properties>
 	<dependencies>
+        <dependency><groupId>org.apache.pdfbox</groupId><artifactId>pdfbox</artifactId><version>3.0.8</version></dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-jpa</artifactId>

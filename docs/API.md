@@ -173,3 +173,6 @@ reservas del hotel/período consultado. Forecast considera entrenamiento y horiz
 sin duplicar reservas. No se expone identidad del propietario ni datos personales.
 No existe endpoint HTTP para cargar o revertir lotes. Véase
 [Historial sintético HU-03](HU03_HISTORIAL_SINTETICO.md).
+# HU-04: descarga de constancia
+
+`GET /api/reservations/{id}/certificate`: sesión autenticada, solo propietario incluso si el usuario es administrador. Respuesta 200 PDF adjunto `constancia-reserva-ID.pdf`, sin caché (`no-store, private`). 401 sin sesión, 403 reserva ajena, 404 inexistente. GET sin escritura ni requisito CSRF; las operaciones mutantes conservan su protección. Incluye estado actual, cancelación, hotel/habitación, fechas y precios guardados; valores heredados ausentes se indican sin inventarlos. No certifica pagos ni es factura. Véase [HU-04](HU04_CONSTANCIA.md).

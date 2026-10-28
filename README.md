@@ -48,3 +48,6 @@ gráficos y horizonte de 30 días. Es informativa y no modifica precios/inventar
 Método, limitaciones y demo aislada: [HU03_PREVISION_DEMANDA.md](docs/HU03_PREVISION_DEMANDA.md).
 El histórico básico de reservas se conserva para el funcionamiento del sistema;
 no implementa esas historias individuales.
+# HU-04: constancia PDF
+
+Desde **Mis reservas** se puede descargar la constancia de una reserva propia, confirmada o cancelada. Incluye sus datos y precios pactados; no acredita pagos ni es factura fiscal. [Contrato, seguridad y demostración](docs/HU04_CONSTANCIA.md).

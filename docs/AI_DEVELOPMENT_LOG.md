@@ -542,3 +542,94 @@ PostgreSQL no se reinició ni se eliminó su volumen. No se modificaron V1/V2,
 usuarios preexistentes, HU-01, HU-02, pagos, precios ni la rama base.
 PR #7 permanece destinado a base; la revisión humana, aprobación y merge
 corresponden al equipo. No se inventan aprobaciones ni se realiza merge automático.
+
+## HU-04 (#6): constancia de reserva propia — 28/10/2026, America/Panama
+
+Eric solicitó completar HU-04 en una rama independiente y preparar su aporte a la
+tabla «El nuestro DOCUMENTAR» del informe académico. Se revisó el documento del
+proyecto como contexto; no se modificó el original de Downloads ni se atribuyeron
+aprobaciones o resultados del equipo sin evidencia.
+
+Implementación: controlador independiente GET /api/reservations/{id}/certificate,
+servicio PDFBox 3.0.8 y descarga desde Mis reservas. Solo propietario, incluyendo
+administradores; sin escrituras ni migraciones. Refleja precios guardados y estado
+actual, indica cancelación y valores heredados ausentes; no acredita pagos.
+Texto largo se reparte entre líneas/páginas; fuente estándar para español con
+sustitución explícita de glifos no soportados. Seguridad de sesión/CSRF conservada.
+
+Se añadieron cinco pruebas Java y dos descargas (confirmada/cancelada) dentro del
+recorrido Playwright existente. La primera ejecución aislada detectó un error de
+preparación del agente: reutilizó una imagen flyway-check que contenía V3 de
+checkout de otra rama. Flyway rechazó el checksum, sin reparar el historial ni
+alterar migraciones. Se reconstruyó la imagen correcta y se repitió desde bases
+tmpfs vacías. Esa primera ejecución fallida no cuenta como validación satisfactoria.
+
+Validación final satisfactoria: `.local/isolated/20261028-051533/`. Pasaron 47
+pruebas Maven (incluidas cinco de constancias), una adicional de compatibilidad,
+TypeScript/lint/build y 8/8 Playwright. Migración nueva/adopción, preservación de
+valores/secuencias y guardas de URL también correctas; las negativas esperadas
+retornaron 1 sin baseline y 64 para destinos incorrectos. El PDF y su render
+sintéticos se conservaron en docs/evidencias/hu04 y se inspeccionaron visualmente.
+No se modificó PostgreSQL de desarrollo. HU-04 queda implementada y verificada
+sobre base 9bd8d2e, pendiente de revisión humana e integración del PR.
+
+## HU-04: revisión humana y formato formal de constancia — 28/10/2026
+
+Eric informó que probó las dos demos y que cumplen el comportamiento esperado.
+Solicitó mejorar la constancia porque el texto lineal no tenía la presentación
+formal que esperaba para una reserva de hotel. Esta declaración se registra como
+revisión funcional humana, sin atribuirle pruebas específicas de 3DS o webhooks
+que no describió.
+
+Se sustituyó la presentación lineal por encabezado HOTEL MN y referencia, franja
+de estado, tablas de estancia y registro, total destacado y pie numerado. Se
+conservan los datos pactados, la cancelación, el aviso de que no acredita pagos,
+el control de propiedad y el contrato HTTP. Celdas medidas, ajuste por palabras,
+márgenes y encabezados repetidos evitan recortes de datos extensos.
+
+Las cinco pruebas existentes de constancias pasaron en PostgreSQL tmpfs de un
+proyecto separado, hotel-reservation-system-hu04-format-test; no se truncaron las
+reservas de la demo que Eric acababa de probar. Las pruebas exportan confirmada,
+cancelada y texto largo para inspección visual. Se revisaron los tres PNG y se
+actualizaron PDF/PNG sintéticos de docs/evidencias/hu04. No se volvió a afirmar
+una ejecución de toda la suite: el cambio se validó con sus cinco pruebas de
+contenido, permisos y CSRF, compilación y revisión visual.
+
+Se actualiza únicamente el backend de HU-04 con el perfil isolated para evitar
+repetir el cargador demo. PostgreSQL no se reinicia ni se migra; HU-01 y su
+listener permanecen activos. La revisión y publicación continúan en PR #14,
+siempre en borrador y sin fusionar.
+La huella y cantidad de las reservas de la demo antes y después de actualizar
+backend resultaron idénticas. Ambas demos respondieron HTTP 200. Se detuvo solo
+el PostgreSQL auxiliar de pruebas de formato; las dos demos permanecen activas.
+
+## Integración HU-01/HU-04 hacia main: diagnóstico — 28/10/2026
+
+Eric informó que base se fusionó a main y autorizó continuar la preparación de
+una rama de integración conservando las originales. Se comprobó PR #15 y main
+7c892ea; HU-05/PR #9 sigue abierto y fuera de main. No hay cambios locales ajenos.
+La rama integ/hu-01-hu-04-main parte de origin/main y conserva HU-04 formal.
+
+Se comprobó en PostgreSQL tmpfs separado, mediante Flyway validate y sin migrate,
+que main falla: Found more than one migration with version 3 (room_capacity y
+tracked_demonstration_history). Main ocupa además V4 para huéspedes y V5 para
+tipo; chocan con V4 de notificaciones y V5 de checkout. PR #15 no reporta checks;
+el workflow actual solo cubre PR a base. No se toca ni renombra una migración
+integrada ni se repara un historial de desarrollo.
+
+Eric aprobó preparar diagnóstico y propuesta para el equipo. También eligió un
+único pago por todas las habitaciones con confirmación conjunta, y cancelación
+por habitación con reembolso parcial. Son nuevas decisiones funcionales para
+adaptar HU-01 al flujo múltiple de HU-06, no funcionalidades que ya estén probadas.
+
+HU-04 se combina con main manteniendo tipo y huéspedes en ReservationList. El
+único conflicto de su prueba de navegador se resuelve conservando tanto la
+aserción de tipo de habitación como la descarga PDF, sin quitar cobertura.
+Backend con HU-04 compila; TypeScript, lint, build y 114 pruebas Vitest pasan
+sin red. No se ejecuta ni declara satisfactoria la suite integrada DB/JUnit/E2E:
+la colisión Flyway debe resolverse coordinadamente antes. HU-01 no se ha mezclado
+para evitar publicar un checkout antiguo que confirme grupos sin cobrar o
+pierda la selección de huéspedes. Ningún PR se fusionó ni se cerró.
+
+Plan revisable en docs/auditorias/INTEGRACION_HU01_HU04_MAIN.md. Las demos y sus
+bases no se modifican; solo se usa y detiene un PostgreSQL auxiliar de auditoría.
