@@ -542,3 +542,33 @@ PostgreSQL no se reinició ni se eliminó su volumen. No se modificaron V1/V2,
 usuarios preexistentes, HU-01, HU-02, pagos, precios ni la rama base.
 PR #7 permanece destinado a base; la revisión humana, aprobación y merge
 corresponden al equipo. No se inventan aprobaciones ni se realiza merge automático.
+
+## HU-04 (#6): constancia de reserva propia — 28/10/2026, America/Panama
+
+Eric solicitó completar HU-04 en una rama independiente y preparar su aporte a la
+tabla «El nuestro DOCUMENTAR» del informe académico. Se revisó el documento del
+proyecto como contexto; no se modificó el original de Downloads ni se atribuyeron
+aprobaciones o resultados del equipo sin evidencia.
+
+Implementación: controlador independiente GET /api/reservations/{id}/certificate,
+servicio PDFBox 3.0.8 y descarga desde Mis reservas. Solo propietario, incluyendo
+administradores; sin escrituras ni migraciones. Refleja precios guardados y estado
+actual, indica cancelación y valores heredados ausentes; no acredita pagos.
+Texto largo se reparte entre líneas/páginas; fuente estándar para español con
+sustitución explícita de glifos no soportados. Seguridad de sesión/CSRF conservada.
+
+Se añadieron cinco pruebas Java y dos descargas (confirmada/cancelada) dentro del
+recorrido Playwright existente. La primera ejecución aislada detectó un error de
+preparación del agente: reutilizó una imagen flyway-check que contenía V3 de
+checkout de otra rama. Flyway rechazó el checksum, sin reparar el historial ni
+alterar migraciones. Se reconstruyó la imagen correcta y se repitió desde bases
+tmpfs vacías. Esa primera ejecución fallida no cuenta como validación satisfactoria.
+
+Validación final satisfactoria: `.local/isolated/20261028-051533/`. Pasaron 47
+pruebas Maven (incluidas cinco de constancias), una adicional de compatibilidad,
+TypeScript/lint/build y 8/8 Playwright. Migración nueva/adopción, preservación de
+valores/secuencias y guardas de URL también correctas; las negativas esperadas
+retornaron 1 sin baseline y 64 para destinos incorrectos. El PDF y su render
+sintéticos se conservaron en docs/evidencias/hu04 y se inspeccionaron visualmente.
+No se modificó PostgreSQL de desarrollo. HU-04 queda implementada y verificada
+sobre base 9bd8d2e, pendiente de revisión humana e integración del PR.
