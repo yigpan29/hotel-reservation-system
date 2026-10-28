@@ -12,11 +12,11 @@ import About from './pages/About'
 import Auth from './pages/Auth'
 import MyReservations from './pages/MyReservations'
 import AdminPanel from './pages/AdminPanel'
+import Checkout from './pages/Checkout'
 import { buttonClass } from './ui/button-class'
 import { Loading } from './ui/Loading'
 import Notice from './ui/Notice'
 import { ShieldIcon } from './ui/Icons'
-import Checkout from './pages/Checkout'
 
 /** Pantalla breve y con salida: nunca un callejón sin botón. */
 function Blocked({ title, children, action }: { title: string; children: ReactNode; action: ReactNode }) {
@@ -29,6 +29,7 @@ function Blocked({ title, children, action }: { title: string; children: ReactNo
     </div>
   </section>
 }
+
 function Guard({ children, admin = false }: { children: ReactNode; admin?: boolean }) {
   const { user, loading, error } = useAuth(), location = useLocation()
   if (loading) return <div className="page"><Loading label="Cargando sesión…" /></div>
@@ -40,6 +41,7 @@ function Guard({ children, admin = false }: { children: ReactNode; admin?: boole
   </Blocked>
   return children
 }
+
 export default function App() {
   return <BrowserRouter>
     <AuthProvider>

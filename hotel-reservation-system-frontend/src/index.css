@@ -172,6 +172,10 @@
     background-size: 1.1rem;
   }
   textarea.field { @apply min-h-24 resize-y; }
+  .radio {
+    @apply h-[1.15rem] w-[1.15rem] shrink-0 border-ink-300 text-brand-600 accent-brand-600
+      transition-[border-color] duration-160 ease-out-strong focus-visible:ring-2 focus-visible:ring-brand-500;
+  }
   .checkbox {
     @apply h-[1.15rem] w-[1.15rem] rounded-[0.3rem] border-ink-300 text-brand-600 accent-brand-600
       transition-[background-color,border-color] duration-160 ease-out-strong focus-visible:ring-2 focus-visible:ring-brand-500;

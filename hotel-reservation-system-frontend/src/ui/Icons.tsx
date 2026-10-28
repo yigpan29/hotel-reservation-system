@@ -38,3 +38,6 @@ export const ShieldIcon = (props: IconProps) => <Icon {...props}><path d="M12 3.
 export const ClockIcon = (props: IconProps) => <Icon {...props}><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></Icon>
 export const ChartIcon = (props: IconProps) => <Icon {...props}><path d="M4 19.5h16M7 16V9.5M12 16V5.5M17 16v-4" /></Icon>
 export const TicketIcon = (props: IconProps) => <Icon {...props}><path d="M4 8.5V6.5A1.5 1.5 0 0 1 5.5 5h13A1.5 1.5 0 0 1 20 6.5v2a2.5 2.5 0 0 0 0 7v2a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-2a2.5 2.5 0 0 0 0-7Z" /><path d="M12 8.75v6.5" strokeDasharray="2 2.5" /></Icon>
+export const DownloadIcon = (props: IconProps) => <Icon {...props}><path d="M12 4v10.5m0 0 3.75-3.75M12 14.5 8.25 10.75M4.5 16.5V18a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-1.5" /></Icon>
+export const CreditCardIcon = (props: IconProps) => <Icon {...props}><rect x="3" y="5.5" width="18" height="13" rx="2.5" /><path d="M3 10h18M6.5 14.75h3" /></Icon>
+export const ReceiptIcon = (props: IconProps) => <Icon {...props}><path d="M6 3.5h12v17l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4-2 1.4z" /><path d="M9.5 8.5h5M9.5 12.5h5" /></Icon>

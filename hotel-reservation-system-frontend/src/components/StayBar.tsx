@@ -1,13 +1,7 @@
 import Button from '../ui/Button'
 import { guestLabel, roomsLabel, type Guests } from '../guests'
+import { prettyDay } from '../types'
 import { CalendarIcon, ClockIcon, UsersIcon } from '../ui/Icons'
-
-const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
-/** '2026-11-10' → '10 nov 2026'. Sin Date: la cadena ya viene en la zona del hotel. */
-const pretty = (day: string) => {
-  const [year, month, date] = day.split('-')
-  return Number(date) + ' ' + months[Number(month) - 1] + ' ' + year
-}
 
 /**
  * La barra de la estadía: lo que el cliente ya eligió, en una sola línea, y el único
@@ -35,7 +29,7 @@ export default function StayBar({ stay, nights, rooms, guests, disabled, onPick 
   </div>
 
   const cells = [
-    { Glyph: CalendarIcon, label: 'Fechas', value: pretty(stay.start) + ' → ' + pretty(stay.end) },
+    { Glyph: CalendarIcon, label: 'Fechas', value: prettyDay(stay.start) + ' → ' + prettyDay(stay.end) },
     { Glyph: ClockIcon, label: 'Estadía', value: nights === 1 ? '1 noche' : nights + ' noches' },
     { Glyph: UsersIcon, label: 'Huéspedes', value: roomsLabel(rooms) + ' · ' + guestLabel(guests) },
   ]

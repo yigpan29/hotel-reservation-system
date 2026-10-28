@@ -93,27 +93,15 @@ no pertenecen a los artifacts del harness ni se publican en GitHub.
 ## HU-01 checkout completo
 
 La suite aplica V1–V6 y V8__checkout_orders.sql en hotel_test tmpfs y compara
-instalación nueva con adopción, preservando datos/secuencias. V7 queda reservada
-para HU-05, cuyo PR no está integrado; no se prueba ni se inventa esa migración.
-No desplegar V8 antes de coordinar V7 en instalaciones compartidas.
+instalación nueva con adopción, preservando datos y secuencias. V7 queda reservada
+para HU-05, cuyo PR no está integrado. No desplegar V8 antes de coordinar V7 en
+instalaciones compartidas.
 
-`CheckoutIntegrationTests` usa PostgreSQL real y un DOBLE de PaymentGateway:
-checkout inicial, fallos, expiración, idempotencia, recuperación, permisos/CSRF,
-concurrencia de retenciones/finalización y reembolsos.
-Las pruebas de método guardado verifican consentimiento versionado, ausencia de
-guardado sin casilla, reutilización sin PAN, propiedad local/proveedor, caducidad,
-retirada local incluso con proveedor caído, CSRF, rechazo recurrente y concurrencia.
-`StripeWebhookTests` valida firmas con el SDK oficial usando exclusivamente secretos sintéticos.
-Los E2E `checkout.spec.ts` interceptan el contrato visual: no hacen pagos Stripe.
-El resto de la suite mantiene checkout deshabilitado para regresión legacy.
-
+`CheckoutIntegrationTests` usa PostgreSQL real y un doble de PaymentGateway.
 La demo integral con el proveedor exige claves privadas y el overlay opt-in
-`compose.stripe-test.yaml`; no se ejecuta automáticamente ni altera la red
-interna de PostgreSQL. Ver [guía HU-01](../../docs/HU01_CHECKOUT_INICIAL.md).
-No presentar estas pruebas con dobles como evidencia de una transacción sandbox.
+`compose.stripe-test.yaml`; ver [guía HU-01](../../docs/HU01_CHECKOUT_INICIAL.md).
 
 ## Seguimiento de historial HU-03 (V6)
-
 
 El harness también valida V6 en instalación limpia y adopción legacy, y ejecuta
 DemandHistoryBatchTests: seis pruebas de idempotencia, determinismo, intervalos,
@@ -121,14 +109,3 @@ procedencia por filtros, rollback y reversión exclusiva con dependencias.
 Estas pruebas permanecen restringidas a hotel_test; no generan datos en desarrollo.
 El procedimiento explícito y separado de desarrollo se documenta en
 [Historial sintético HU-03](../../docs/HU03_HISTORIAL_SINTETICO.md).
-
-## Validación conjunta sobre main (28/10/2026)
-
-110 JUnit y una compatibilidad, 117 Vitest, TypeScript/lint/build y 15 Playwright
-correctos. GroupCheckoutIntegrationTests añade doce casos con PostgreSQL real y
-proveedor DOBLE: un pago para varias habitaciones, consentimiento y método,
-idempotencia, rollback, inventario cambiante, permisos/CSRF, concurrencia y
-reembolso exacto por habitación repetido/concurrente. Ningún doble acredita un
-cobro Stripe. El smoke opt-in stripe-group-sandbox-smoke.py confirma por API con
-tokens oficiales de pruebas y devuelve todos sus pagos; no pertenece a CI ni
-completa Stripe.js/3DS interactivo. Ver guía HU-01 para listener y aislamiento.

@@ -43,7 +43,7 @@ export default function ReservationSummaryModal({ hotelName, types, rooms, start
       </section>)}
 
       <div className="flex items-center justify-between gap-4 rounded-xl border border-brand-200 bg-brand-50 px-4 py-4">
-        <span className="text-sm font-semibold text-brand-900">Precio total</span>
+        <span className="text-sm font-semibold text-brand-900">{checkout ? 'Precio estimado' : 'Precio total'}</span>
         <span className="text-xl font-bold text-brand-800 tabular">{money(selectionTotal(types, rooms, nights))}</span>
       </div>
 

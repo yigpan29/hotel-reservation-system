@@ -12,8 +12,8 @@ const tones: Record<BadgeTone, { box: string; dot: string }> = {
   info: { box: 'bg-info-50 text-info-700 border-info-200', dot: 'bg-info-700' },
 }
 
-export default function Badge({ tone = 'neutral', dot = false, children, className = '' }: { tone?: BadgeTone; dot?: boolean; children: ReactNode; className?: string }) {
-  return <span className={'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ' + tones[tone].box + ' ' + className}>
+export default function Badge({ tone = 'neutral', dot = false, children, className = '', role }: { tone?: BadgeTone; dot?: boolean; children: ReactNode; className?: string; role?: 'status' }) {
+  return <span role={role} className={'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ' + tones[tone].box + ' ' + className}>
     {dot && <span aria-hidden="true" className={'h-1.5 w-1.5 rounded-full ' + tones[tone].dot} />}
     {children}
   </span>

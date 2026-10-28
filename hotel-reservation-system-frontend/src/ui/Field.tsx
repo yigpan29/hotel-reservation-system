@@ -5,11 +5,13 @@ import type { ReactNode } from 'react'
  * <label>, así que sigue asociado sin necesidad de ids generados.
  */
 export default function Field({ label, hint, children, className = '' }: { label: ReactNode; hint?: ReactNode; children: ReactNode; className?: string }) {
-  return <label className={'block ' + className}>
-    <span className="label">{label}</span>
-    <span className="mt-1.5 block">{children}</span>
+  return <div className={className}>
+    <label className="block">
+      <span className="label">{label}</span>
+      <span className="mt-1.5 block">{children}</span>
+    </label>
     {hint && <span className="hint mt-1.5">{hint}</span>}
-  </label>
+  </div>
 }
 
 /** Casilla con su texto al lado, alineada a la línea base del resto del formulario. */
