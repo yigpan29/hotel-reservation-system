@@ -286,8 +286,9 @@ test('huéspedes: una habitación por grupo, tipos compatibles y unidades sufici
   await expect(page.getByText(/Números de reserva: #\d+, #\d+/)).toBeVisible()
   await page.getByRole('link', { name: 'Ver mis reservas' }).click()
   // Cada habitación conserva los huéspedes que el cliente configuró para ella.
-  await expect(page.getByText('2 adultos · 1 niño · 3 huéspedes')).toBeVisible()
-  await expect(page.getByText('2 adultos · 2 huéspedes')).toBeVisible()
+  // La tarjeta separa el tipo de huésped (2 adultos · 1 niño) del total (3 huéspedes): se comprueban juntos en cada reserva.
+  await expect(page.getByRole('article').filter({ hasText: '3 huéspedes' })).toContainText('2 adultos · 1 niño')
+  await expect(page.getByRole('article').filter({ hasText: '2 huéspedes' })).toContainText('2 adultos')
   await page.screenshot({ path: test.info().outputPath('guests-reservation.png'), fullPage: true })
 })
 
