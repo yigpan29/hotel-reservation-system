@@ -13,6 +13,7 @@ import About from './pages/About'
 import Auth from './pages/Auth'
 import MyReservations from './pages/MyReservations'
 import AdminPanel from './pages/AdminPanel'
+import Checkout from './pages/Checkout'
 function Guard({ children, admin = false }: { children: ReactNode; admin?: boolean }) {
   const { user, loading, error } = useAuth(), location = useLocation()
   if (loading) return <p className="page" role="status">Cargando sesión…</p>
@@ -25,4 +26,5 @@ export default function App() { return <BrowserRouter><AuthProvider><Header /><m
   <Route path="/" element={<Home />} /><Route path="/products" element={<Rooms />} /><Route path="/productDetail" element={<RoomDetails />} /><Route path="/hotels/:id" element={<RoomDetails />} /><Route path="/about" element={<About />} />
   <Route path="/login" element={<Auth />} /><Route path="/register" element={<Auth register />} /><Route path="/my-reservations" element={<Guard><MyReservations /></Guard>} /><Route path="/admin" element={<Guard admin><AdminPanel /></Guard>} />
   <Route path="*" element={<section className="page"><h1 className="title">Página no encontrada</h1></section>} />
+  <Route path="/checkout/:id" element={<Guard><Checkout /></Guard>} />
 </Routes></main><Footer /></AuthProvider></BrowserRouter> }

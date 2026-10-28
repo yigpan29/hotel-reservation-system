@@ -346,6 +346,178 @@ efímeros del harness no se presentan como sustitutos.
 El catálogo y `yonielvegas` están listos; el cierre de ambas cuentas administrativas
 queda condicionado a esa entrada privada. HU-01/HU-02/HU-03 y pagos siguen excluidos.
 
+## HU-01 (#5), entrega 1 — 26–27/10/2026, America/Panama
+
+Responsable humano: Eric. Alcance aprobado en conversación: Stripe sandbox,
+checkout inicial y después reutilización. Eric decidió expresamente comenzar
+**solo por el primer checkout**. No se declara HU-01 terminada: guardado,
+consentimiento de reutilización y compra recurrente quedan para entrega 2.
+
+Antes de editar: árbol limpio en base e899442, fetch origin, revisión de issue #5,
+README/API/INICIO-LOCAL, flujo de reservas/Payment/migraciones/pruebas. No se
+encontraron AGENTS.md aplicables. El conector GitHub dio 404; GitHub CLI autenticado
+permitió leer issue y PR activos. Solo PR abierto #7 HU-03, base=base, 26 archivos.
+Se advirtió el solapamiento documental/dependencias/infra de pruebas y la semántica
+de CONFIRMED/CANCELLED en sus consultas. Su rama avanzó de c2dd659 a e62ba25 y se
+volvió a actualizar la referencia. No se modificaron sus módulos ni su rama.
+
+Tras aprobación: rama `feat/hu-01-reserva-recurrente` desde origin/base e899442.
+No se sobrescribieron cambios ajenos ni se editó base. No se hizo push a base,
+merge ni force push.
+Se consultó documentación oficial Stripe para PaymentIntent, captura manual,
+idempotencia, webhooks, reembolsos, pruebas y disponibilidad comercial. La propuesta
+se presentó antes de escribir código. La elegibilidad comercial de una entidad
+panameña no se da por resuelta al implementar sandbox.
+
+Decisiones implementadas: tabla aditiva V3 checkouts con UUID e importes USD en
+centavos; Payment heredado intacto. Retención 10 min, bloqueo compartido de fila
+de habitación y consulta de disponibilidad que incluye retenciones; estados
+intermedios fuera de reservations para preservar HU-03. Autorización y captura
+manual, confirmación únicamente al verificar succeeded. Transacciones cortas sin
+llamadas al proveedor, claves por operación, recuperación persistente de captura
+incierta y reembolso. Expiración/rechazo libera retención; FINALIZING se conserva
+ante incertidumbre para no sobrevender. Cobro tardío sin derecho a inventario se
+reembolsa sin reserva. Cancelación pagada persiste reserva CANCELLED y solicitud
+de reembolso juntas; fallo/pendencia de devolución se informa por separado.
+
+Feature flag apagado preserva el flujo histórico sin interpretar CONFIRMED como
+pagado; encendido bloquea el endpoint antiguo para impedir bypass del checkout.
+Solo claves test y respuestas livemode=false. Stripe.js diferido con Payment
+Element; sin guardar tarjeta/Customer/SetupIntent, PAN/CVV, cuerpos del proveedor
+ni secretos en logs/Git. Sesión y CSRF intactos salvo el POST webhook específico,
+que usa firma del SDK sobre cuerpo original. Consultas/acciones solo del dueño.
+Documentación detallada y demostración: docs/HU01_CHECKOUT_INICIAL.md.
+
+Dependencias fijadas: stripe-java 34.0.0 y @stripe/stripe-js 10.2.0. El intento de
+npm dentro del sandbox no progresó; se canceló y se instaló con permiso de red.
+Build frontend inicial bloqueado por permisos de lectura de Vite; repetido con
+permiso: TypeScript/build/lint correctos. Compilación backend y pruebas correcta.
+Pruebas unitarias reales en contenedor sin red: StripeWebhookTests **3/3**, cero
+fallos/errores/omitidas (firma válida, alteración/antigüedad/modo live y claves).
+
+La validación aislada completa está en ejecución; Docker estaba detenido y se
+inició sin arrancar ni modificar servicios de desarrollo. La primera construcción
+descarga imágenes/dependencias. JUnit de checkout utiliza un DOBLE explícito del
+proveedor; E2E de checkout utiliza respuestas visuales interceptadas. Ninguno se
+presenta como pago sandbox efectuado. La demostración contra Stripe requiere
+claves privadas y listener y permanece pendiente hasta disponer de evidencia real.
+
+Primera ejecución completa `.local/isolated/20261026-194456/`: migraciones,
+adopción, preservación, arranque y barreras de aislamiento correctas. Frontend
+TypeScript/lint/build correctos. 19/19 pruebas de checkout y 3/3 firmas correctas;
+regresión total 44 Java, un fallo: SystemIntegrationTests aún esperaba dos
+migraciones. Se reemplazó por comprobación exacta de versiones 1/2/3, sin retirar
+validaciones. Se añadió además verificación de amount_received contra el importe
+total y una prueba de captura parcial que no puede confirmar la reserva.
+Una reconstrucción falló por PKIX de Maven Central; el reintento pasó manteniendo
+TLS. El reset aislado verificó etiqueta/red/tmpfs y retiró solo PostgreSQL temporal.
+
+Revisión remota 27/10: origin/base avanzó a 9bd8d2e (PR #7 integrado), con once
+commits nuevos y V3__tracked_demonstration_history.sql. El PR activo #9 HU-05 usa
+V4__reservation_notifications.sql y añade avisos al confirmar/cancelar reservas.
+Nuestra V3 de checkout colisiona con V3 integrada y requiere coordinación con V4
+pendiente. Además, la confirmación posterior al cobro debe coordinarse con el
+aviso HU-05 dentro de la transacción, nunca al iniciar el checkout.
+
+Se informó el conflicto y se pidió decisión entre priorizar la integración humana
+de HU-05 y usar V5 después, o priorizar checkout con V4 y coordinar la renumeración
+de HU-05. No se renumeró ninguna migración ni se resolvieron contenidos por
+suposición; tampoco se integró ni se publicó la rama. La repetición aislada
+`.local/isolated/20261027-182135/` valida únicamente el checkout sobre su punto
+de partida e899442; no equivale a validar integración con origin/base 9bd8d2e.
+
+La lectura de DemandHistoryBatchService en la base nueva confirmó otra dependencia:
+su guardián de reversión rechaza FKs desconocidas hacia reservations/users.
+Checkouts añade ambas. Se pidió autorización específica para reconocerlas y
+rechazar lotes/usuarios con checkouts dependientes, con pruebas, sin modificar
+fórmula, gráficos ni datos HU-03. No se alteró ese guardián mientras se espera
+decisión: la exclusión de HU-03 indicada por Eric impide asumir esa excepción.
+
+### Ampliación expresa a HU-01 completa — 27/10/2026
+
+Eric pidió dejar sin efecto la división en primera/segunda entrega e implementar
+el checkout completo para finalizar HU-01. Se recuperó su rama y el stash con
+`apply --index`, conservando el stash de respaldo. No había cambios ajenos.
+Origin/base continúa en 9bd8d2e y PR #9 continúa abierto. La autorización amplía
+el alcance funcional, pero no elimina la instrucción de consultar decisiones
+entre historias. Se pidió coordinación V5 dependiente de V4/#9 y adaptación mínima
+del guardián, o priorización de V4 checkout con renumeración coordinada de HU-05.
+No se aplicó ninguna alternativa mientras falta esa respuesta.
+
+Implementado: consentimiento inicial desmarcado, versión hu01-on-session-v1 y
+timestamp; Customer idempotente por perfil privado y setup_future_usage=on_session.
+Sin casilla no se crea Customer ni referencia guardada. El método local se activa
+en la transacción que confirma la reserva después de cobro completo verificado.
+Solo se guardan referencia, marca, últimos cuatro dígitos y vencimiento, no PAN/CVV.
+La nueva compra elige UUID local autorizado; se comprueban propietario y estado
+local/proveedor y se confirma mediante Stripe.js sin rellenar otra vez la tarjeta,
+con 3DS si procede. El usuario puede elegir tarjeta nueva si no tiene método o falla.
+Retirada persistida primero, impidiendo nuevas compras aunque falle desvinculación;
+el worker reintenta. No cancela operaciones previamente iniciadas.
+
+Se añadieron tablas payment_profiles/saved_payment_methods y columnas de
+consentimiento/método en la migración privada de checkout aún no publicada; su
+numeración definitiva depende de la coordinación pendiente. No se cambió una
+migración integrada ni se aplicaron migraciones a desarrollo. Las nuevas FK también
+deben contemplarse en la adaptación mínima del guardián HU-03 si se autoriza.
+
+Compilación del backend y pruebas y TypeScript/build/lint frontend correctos en
+la ampliación inicial. La ejecución `.local/isolated/20261027-184756/` verifica
+el alcance completo sobre el punto de partida original; no acredita integración
+con la base nueva. Se ampliaron pruebas con/sin consentimiento, propietario,
+método ausente/retirado/vencido, revocación con Stripe caído y CSRF, fallo y
+concurrencia recurrentes. E2E nuevos prueban consentimiento y selección con un
+doble visual claramente identificado, sin presentarlo como transacción Stripe.
+
+La repetición anterior `.local/isolated/20261027-182135/` pasó backend/frontend y
+falló 2/7 E2E por timeout: primer login y recorrido cliente. Se conservaron trazas;
+la traza del primer login muestra carga inicial Vite y formulario finalmente
+visible. No se ampliaron tiempos, añadieron retries ni desactivaron verificaciones.
+La ejecución actual repite esos recorridos con las fuentes nuevas.
+
+No existen claves Stripe exportadas ni `.env.stripe-test`; tampoco hay conector
+Stripe disponible. Se solicitó configuración privada para la prueba integral.
+Primer pago/compra recurrente/rechazo/3DS/reembolso contra sandbox permanecen sin
+demostración hasta obtener credenciales y evidencia real. No se declara cumplida
+la HU ni se publica un PR como verificado mientras falte integración/pruebas finales.
+
+La ejecución completa `.local/isolated/20261027-184756/` pasó migraciones,
+preservación y arranque: **55 Maven + 1 compatibilidad**, incluidas 30 pruebas de
+checkout inicial/recurrente y tres de firmas. Frontend TypeScript/lint/build pasó.
+Playwright pasó 7/9 y detectó un defecto real en los dos casos nuevos: randomUUID
+no existe en el origen HTTP interno frontend-app. Se corrigió con 128 bits de
+crypto.getRandomValues, sin Math.random, sin cambiar timeouts/retries ni relajar
+aserciones. Las pruebas mostraron consentimiento desmarcado y selección guardada,
+pero impedían iniciar checkout; se conservan errores/trazas de ambos casos.
+
+Se añadió protección de propietario también al desvincular: si el método ahora
+pertenece a otro Customer, no se modifica. Retirada local permanece efectiva y el
+desacoplamiento queda pendiente de revisión/reintento. Un método inexistente en
+Stripe (400/404 al consultar) se trata como fallo definitivo 409 para liberar la
+retención, manteniendo 503 para fallos de disponibilidad. Se añadieron pruebas
+del adaptador sin red. La validación posterior está en
+`.local/isolated/hu01-complete-final/`; frontend ya pasó con la corrección HTTP.
+
+Resultado posterior real: backend **56 Maven + 1 compatibilidad**, cero fallos,
+errores u omitidas, incluidas 30 de checkout y cuatro de adaptador/firmas. Tras
+clasificar el 404 del proveedor se repitieron sus **5 pruebas sin red**, todas
+correctas; esa corrección no cambió esquema, servicios de dominio ni contratos.
+TypeScript/lint/build finales pasaron. Playwright **9/9** (56.2 segundos), sin
+retries/timeouts ampliados: cuatro escenarios HU-01 con doble visual y cinco de
+regresión real contra la aplicación aislada. Se inspeccionó captura del resultado
+recurrente del doble, sin confundir reserva sintética #999 con transacción Stripe.
+Fuentes/logs completos en `.local/isolated/hu01-complete-final/`; reportes y capturas
+en `.local/isolated-artifacts/e2e/hu01-complete-final/`.
+
+Trabajo guardado en commits 6d49ee8 (backend completo) y 18f0f5d (UI/HTTP/E2E),
+ambos refs #5; los tres commits iniciales se conservan. El stash original también
+permanece como respaldo. Fetch posterior confirmó base 9bd8d2e y #9 abierto.
+No se tocó el guardián HU-03 ni se eligió unilateralmente el orden V4/V5; no hay
+push ni PR nuevo mientras esas decisiones requeridas sigan pendientes. No se
+alteró PostgreSQL de desarrollo ni se ejecutaron cobros reales. Validación de
+integración con la base vigente y transacciones Stripe sandbox siguen pendientes,
+a pesar de las comprobaciones locales satisfactorias del checkout completo.
+
 ## HU-03 — Previsión de demanda (26/10/2026)
 
 Trabajo autorizado por el alcance actualizado del Issue #1, en
@@ -543,6 +715,105 @@ usuarios preexistentes, HU-01, HU-02, pagos, precios ni la rama base.
 PR #7 permanece destinado a base; la revisión humana, aprobación y merge
 corresponden al equipo. No se inventan aprobaciones ni se realiza merge automático.
 
+## HU-04 (#6): constancia de reserva propia — 28/10/2026, America/Panama
+
+Eric solicitó completar HU-04 en una rama independiente y preparar su aporte a la
+tabla «El nuestro DOCUMENTAR» del informe académico. Se revisó el documento del
+proyecto como contexto; no se modificó el original de Downloads ni se atribuyeron
+aprobaciones o resultados del equipo sin evidencia.
+
+Implementación: controlador independiente GET /api/reservations/{id}/certificate,
+servicio PDFBox 3.0.8 y descarga desde Mis reservas. Solo propietario, incluyendo
+administradores; sin escrituras ni migraciones. Refleja precios guardados y estado
+actual, indica cancelación y valores heredados ausentes; no acredita pagos.
+Texto largo se reparte entre líneas/páginas; fuente estándar para español con
+sustitución explícita de glifos no soportados. Seguridad de sesión/CSRF conservada.
+
+Se añadieron cinco pruebas Java y dos descargas (confirmada/cancelada) dentro del
+recorrido Playwright existente. La primera ejecución aislada detectó un error de
+preparación del agente: reutilizó una imagen flyway-check que contenía V3 de
+checkout de otra rama. Flyway rechazó el checksum, sin reparar el historial ni
+alterar migraciones. Se reconstruyó la imagen correcta y se repitió desde bases
+tmpfs vacías. Esa primera ejecución fallida no cuenta como validación satisfactoria.
+
+Validación final satisfactoria: `.local/isolated/20261028-051533/`. Pasaron 47
+pruebas Maven (incluidas cinco de constancias), una adicional de compatibilidad,
+TypeScript/lint/build y 8/8 Playwright. Migración nueva/adopción, preservación de
+valores/secuencias y guardas de URL también correctas; las negativas esperadas
+retornaron 1 sin baseline y 64 para destinos incorrectos. El PDF y su render
+sintéticos se conservaron en docs/evidencias/hu04 y se inspeccionaron visualmente.
+No se modificó PostgreSQL de desarrollo. HU-04 queda implementada y verificada
+sobre base 9bd8d2e, pendiente de revisión humana e integración del PR.
+
+## HU-04: revisión humana y formato formal de constancia — 28/10/2026
+
+Eric informó que probó las dos demos y que cumplen el comportamiento esperado.
+Solicitó mejorar la constancia porque el texto lineal no tenía la presentación
+formal que esperaba para una reserva de hotel. Esta declaración se registra como
+revisión funcional humana, sin atribuirle pruebas específicas de 3DS o webhooks
+que no describió.
+
+Se sustituyó la presentación lineal por encabezado HOTEL MN y referencia, franja
+de estado, tablas de estancia y registro, total destacado y pie numerado. Se
+conservan los datos pactados, la cancelación, el aviso de que no acredita pagos,
+el control de propiedad y el contrato HTTP. Celdas medidas, ajuste por palabras,
+márgenes y encabezados repetidos evitan recortes de datos extensos.
+
+Las cinco pruebas existentes de constancias pasaron en PostgreSQL tmpfs de un
+proyecto separado, hotel-reservation-system-hu04-format-test; no se truncaron las
+reservas de la demo que Eric acababa de probar. Las pruebas exportan confirmada,
+cancelada y texto largo para inspección visual. Se revisaron los tres PNG y se
+actualizaron PDF/PNG sintéticos de docs/evidencias/hu04. No se volvió a afirmar
+una ejecución de toda la suite: el cambio se validó con sus cinco pruebas de
+contenido, permisos y CSRF, compilación y revisión visual.
+
+Se actualiza únicamente el backend de HU-04 con el perfil isolated para evitar
+repetir el cargador demo. PostgreSQL no se reinicia ni se migra; HU-01 y su
+listener permanecen activos. La revisión y publicación continúan en PR #14,
+siempre en borrador y sin fusionar.
+La huella y cantidad de las reservas de la demo antes y después de actualizar
+backend resultaron idénticas. Ambas demos respondieron HTTP 200. Se detuvo solo
+el PostgreSQL auxiliar de pruebas de formato; las dos demos permanecen activas.
+
+## Integración HU-01/HU-04 hacia main: diagnóstico — 28/10/2026
+
+Eric informó que base se fusionó a main y autorizó continuar la preparación de
+una rama de integración conservando las originales. Se comprobó PR #15 y main
+7c892ea; HU-05/PR #9 sigue abierto y fuera de main. No hay cambios locales ajenos.
+La rama integ/hu-01-hu-04-main parte de origin/main y conserva HU-04 formal.
+
+Se comprobó en PostgreSQL tmpfs separado, mediante Flyway validate y sin migrate,
+que main falla: Found more than one migration with version 3 (room_capacity y
+tracked_demonstration_history). Main ocupa además V4 para huéspedes y V5 para
+tipo; chocan con V4 de notificaciones y V5 de checkout. PR #15 no reporta checks;
+el workflow actual solo cubre PR a base. No se toca ni renombra una migración
+integrada ni se repara un historial de desarrollo.
+
+Eric aprobó preparar diagnóstico y propuesta para el equipo. También eligió un
+único pago por todas las habitaciones con confirmación conjunta, y cancelación
+por habitación con reembolso parcial. Son nuevas decisiones funcionales para
+adaptar HU-01 al flujo múltiple de HU-06, no funcionalidades que ya estén probadas.
+
+HU-04 se combina con main manteniendo tipo y huéspedes en ReservationList. El
+único conflicto de su prueba de navegador se resuelve conservando tanto la
+aserción de tipo de habitación como la descarga PDF, sin quitar cobertura.
+Backend con HU-04 compila; TypeScript, lint, build y 114 pruebas Vitest pasan
+sin red. No se ejecuta ni declara satisfactoria la suite integrada DB/JUnit/E2E:
+la colisión Flyway debe resolverse coordinadamente antes. HU-01 no se ha mezclado
+para evitar publicar un checkout antiguo que confirme grupos sin cobrar o
+pierda la selección de huéspedes. Ningún PR se fusionó ni se cerró.
+
+Plan revisable en docs/auditorias/INTEGRACION_HU01_HU04_MAIN.md. Las demos y sus
+bases no se modifican; solo se usa y detiene un PostgreSQL auxiliar de auditoría.
+
+### Numeración aprobada por Eric para continuar la integración
+
+Se incorporaron los commits de fix/main-historial-v6: historial V6 con SQL
+idéntico, aserciones de secuencia V1-V6, precondición administrativa actualizada
+y CI para PR a main. La rama de integración ya no contiene el V3 duplicado.
+Esto no aplica ni repara historiales existentes y no implementa por sí solo el
+checkout múltiple aprobado. La corrección se revisa en un PR independiente.
+
 ## Corrección aprobada del duplicado V3 en main — 28/10/2026
 
 Eric eligió mantener capacidad V3, huéspedes V4 y tipo V5, moviendo solamente
@@ -570,3 +841,169 @@ las aserciones y controles de aislamiento. La sintaxis del script administrativo
 se comprobó sin ejecutarlo. No se afirma que estas pruebas adopten una base que
 ya tenga V3 de historial. Evidencia pública sin datos personales:
 docs/evidencias/migrations-v6/resultado.json.
+
+## HU-01: actualización a base aprobada por Eric (28/10/2026)
+
+Eric autorizó integrar origin/base 9bd8d2e únicamente dentro de la rama HU-01,
+sin fusionar el PR #13 ni escribir en base, y reservar V5 coordinada con HU-05/V4.
+Se conservaron las secciones de ambas historias en README, inicio local, contrato
+API, AI log y pruebas. El lockfile conserva Stripe y las dependencias de Recharts.
+V3 de HU-03 permanece intacta; la migración inédita de checkout se renombró a V5.
+Las aserciones Flyway verifican exactamente V1/V2/V3/V5 en esta rama aislada.
+
+Se adapta mínimamente el guardián de reversión HU-03: las tablas de pago se
+reconocen, pero sus filas dependientes bloquean borrar el lote; otras relaciones
+desconocidas siguen requiriendo revisión. Se añadieron pruebas de ambos casos.
+HU-05 sigue fuera de base: no se aplica V5 a entornos compartidos antes de V4,
+no se activa outOfOrder y la notificación posterior a captura queda pendiente.
+Validaciones de esta actualización: harness completo satisfactorio el 28/10/2026,
+con 79 pruebas Maven y una adicional de compatibilidad; TypeScript/lint/build
+correctos y 12/12 Playwright. Incluye instalación limpia, adopción legacy,
+preservación de datos/secuencias y guardas de URL (rechazos esperados 1 y 64).
+Se ejecutó el mismo harness en el proyecto independiente
+hotel-reservation-system-hu01-test, con imágenes propias y puerto 55174, para
+no mezclar su esquema con la demo HU-04. Solo cambiaron las rutas de ejecución,
+el nombre de proyecto, los tags de imágenes y el puerto; se conservaron las
+aserciones y controles de aislamiento. Reportes privados:
+.local/isolated/20261028-051728/. Los cuatro casos UI de checkout siguen usando
+dobles; no se presentan como una prueba de Stripe.js contra el proveedor.
+
+### Corrección detectada por Stripe real y verificación sandbox
+
+Las claves privadas autentican. La primera prueba de checkout real devolvió 503:
+el SDK recibió HTTP 400 porque `payment_method_types` ya no se admite. Los dobles
+no habían detectado este error. Tras consultar el contrato oficial de creación de
+PaymentIntent, se cambió a `allowed_payment_method_types`, manteniendo solo card
+y captura manual. Se añadió una regresión del límite SDK; las seis pruebas del
+adaptador final pasaron sin red. La suite completa de 79+1 y 12 Playwright pasó
+antes de esa corrección puntual; no se afirma una nueva ejecución conjunta de 80.
+
+También se corrigió el overlay sandbox: al recrear backend debe usar perfil
+isolated, sin volver a ejecutar el cargador demo de una sola ejecución. Se
+verificó el arranque saludable conservando el catálogo existente.
+
+Con el adaptador final, siete escenarios contra api.stripe.com sandbox pasaron:
+primer checkout sin guardado e idempotencia; guardado con consentimiento explícito;
+segunda compra con método guardado real; rechazo sin reserva pagada y liberación
+de inventario; requires_action 3DS sin confirmación prematura; cancelación con
+reembolsos verificados; revocación del método. Se confirmaron y capturaron tres
+pagos sandbox y se verificaron sus tres reembolsos. No se movió dinero real.
+Evidencia sin secretos en docs/evidencias/hu01/stripe-sandbox-results.json.
+
+La confirmación de esos pagos se hizo por API con PaymentMethods oficiales de
+prueba, no mediante Stripe.js en navegador. Completar el desafío 3DS y recibir
+un webhook real desde Stripe siguen pendientes de revisión manual. No se
+presentan firmas locales ni dobles como entrega real de webhooks. Se conserva
+el script opt-in tests/isolated/stripe-sandbox-smoke.py para reproducir el núcleo
+de esos casos con confirmación explícita, claves test y URL local restringida.
+
+No se modificó PostgreSQL de desarrollo ni se fusionó ningún PR. V4 de HU-05
+aún no está en base: V5 no se aplica en entornos compartidos antes de V4.
+
+
+## 2026-10-28 — Integración aprobada HU-01/HU-04 sobre main con checkout conjunto
+
+Responsable: Eric. Refs #5 y #6. Main comprobado: fc74de3, merge humano del
+PR #16. Rama de trabajo: integ/hu-01-hu-04-main; originales y demos conservados.
+Eric autorizó conservar íntegros ambos bloques de documentación y resolver
+los conflictos preservando calendario/huéspedes, pagos y consentimiento, PDF,
+ambas dependencias y seguridad con excepción solo para webhook firmado.
+El rechazo inicial de revisión automática impidió una concatenación/merge
+encadenados sin revisar alternativas; no se ejecutaron esos comandos. Después
+se mostraron las opciones y se obtuvo aprobación expresa antes de resolver.
+
+Decisiones funcionales humanas: un pago por todas las habitaciones y confirmación
+conjunta; cancelación por habitación con devolución de su importe congelado.
+Se añadieron checkout_items, snapshots de tipo/tarifa/huéspedes, bloqueos en orden
+por IDs, rollback sin retenciones parciales y finalización atómica. Calendario y
+asignación consideran todas las retenciones. Se bloquean ambos endpoints legacy
+de creación mientras checkout está activo. Se conserva sesión/CSRF y métodos
+consentidos; la constancia formal HU-04 sigue disponible por reserva.
+
+V1–V6 de main sin cambiar; checkout pasa a V8__checkout_orders.sql. V7 reservada
+para HU-05, cuyo PR #9 aún contiene V4. No se modificó su rama ni se prueba una
+migración inexistente. No desplegar V8 en una base compartida antes de coordinar
+V7 y notificaciones posteriores a captura. No se alteró PostgreSQL de desarrollo,
+no se ejecutó repair ni cobros reales.
+
+Fallos y correcciones reales: referencia de tipo anotada Java corregida mediante
+import de GroupRoomInput; mojibake de una lectura Git con encoding Windows
+corregido preservando texto UTF-8; una prueba anterior reconfiguraba un Answer
+Mockito con when y ejecutaba el matcher vacío: se usó doReturn, manteniendo la
+verificación estricta de importe/moneda/PaymentIntent del reembolso. La primera
+suite tuvo 109 aciertos y un error de fixture; se corrigió y repitió completa.
+
+Resultado final aislado, reporte privado 20261028-133228:
+110 JUnit (incluidas 12 nuevas de grupo) + 1 compatibilidad, 117 Vitest,
+TypeScript/lint/build y 15 Playwright correctos. Instalación nueva, adopción,
+repetición, validación, esquema completo, datos/secuencias y guardas negativas
+se verificaron en hotel_test tmpfs. Checkout JUnit usa DOBLE de proveedor;
+los cuatro E2E checkout interceptan contrato y no equivalen a operaciones Stripe.
+
+Proveedor real solo sandbox: nueve escenarios API correctos a las 18:45 UTC,
+con dos habitaciones por pedido, consentimiento explícito, reutilización,
+rechazo sin reservas, 3DS requires_action sin confirmación prematura, devolución
+parcial exacta/idempotente y revocación. Tres pagos sintéticos capturados y
+completamente reembolsados por habitación; cero errores de limpieza. La primera
+captura fue impulsada por webhook real, observada por GET sin sync posterior a
+la autorización y con worker demorado 3600000 ms. El primer intento del smoke
+llegó durante el arranque y devolvió 500 sin crear compras; tras health pasó.
+Se añadió espera de health al script para reproducirlo. Evidencia pública sin
+secretos: docs/evidencias/hu01/stripe-group-sandbox-results.json.
+Quedan pendientes completar Stripe.js y el desafío 3DS interactivo; no se afirma
+que esta prueba API los complete. No se registraron PAN/CVV ni credenciales.
+
+PR #17 de diseño sigue abierto: solapa App, RoomDetails, MyReservations,
+ReservationList, ReservationSummaryModal y estilos. Main no había avanzado al
+consultarlo; se volverá a consultar antes de publicar. Preparar PR único en
+borrador a main, refs #5/#6; no cerrar #13/#14 sin coordinación. Eric mantiene
+aprobación y fusión humanas, sin auto-merge, ready, force push ni push a main/base.
+
+
+### Revisión final y repetición tras ajustes acotados
+
+La inspección final restringió el matcher CSRF expresamente a POST del webhook;
+PUT/DELETE sin token quedan rechazados y se agregaron aserciones al caso de
+permisos existente. En otra base hotel_test tmpfs, backend completo pasó de nuevo:
+110 JUnit + una compatibilidad, sin fallos ni errores. El texto del checkout
+aclara devolución completa del importe de la habitación, conservando las demás;
+frontend volvió a pasar 117 Vitest, TypeScript, lint y build. Los cuatro E2E de
+checkout con contrato interceptado también pasaron de nuevo (20,5 s).
+La suite conjunta previa de 15 navegador se conserva como tal, sin sumar las
+repeticiones como casos distintos. No hubo otros cambios de lógica de pagos.
+
+Se verificó por comparación que los contenidos informativos de ambos AI logs
+están preservados. Diff completo y staged sin errores de whitespace, sin
+marcadores ni secretos reales aparentes. Main sigue en fc74de3 y PR #9/#17
+siguen abiertos antes de publicar. La rama original HU-04 quedó limpia.
+Commit de merge autorizado: f49a5f6 (padres b7810ef y 4f82336), refs #5/#6.
+Las pruebas y evidencia se separan de la aprobación humana y de la fusión.
+
+El reconciliador de la nueva demo se restauró a 15000 ms y backend/frontend
+se actualizaron con imágenes finales, conservando datos sintéticos. Demos
+anteriores y listener original intactos. Se retiró solamente el proyecto
+hotel-reservation-system-eric-security-test usado para la repetición, no las
+demos. La demo combinada permanece en http://127.0.0.1:55177 con su propio
+listener sandbox; claves y logs privados bajo .local, fuera de Git.
+
+
+## 2026-10-28 — Cierre autorizado de PR sustituidos (refs #5, #6)
+
+Eric confirmó mantener una sola entrega de HU-01/HU-04 mediante PR #18 hacia
+main y cerrar los antiguos #13/#14. Antes se comprobó que ambos seguían abiertos,
+en borrador hacia base y con conflictos; base sigue existiendo y puede recibir
+PR. Se expusieron las alternativas de usar el combinado hacia base o actualizar
+los originales, sin ejecutar retarget ni merge. Eric cambió esa indicación por
+el cierre de ambos como sustituidos y pidió documentarlo en el informe.
+
+Resultado comprobado: #13 CLOSED y #14 CLOSED, ambos con mergedAt null.
+#18 OPEN, draft=true, base=main y sin auto-merge. No se ejecutó ningún comando
+de merge, no se borraron ramas ni se modificaron bases de datos o código de
+aplicación. El historial y las revisiones de los PR cerrados siguen disponibles.
+La decisión de entrega sin esperar HU-05 no cambia el pendiente de coordinar
+V7/V8 y notificaciones antes de un despliegue compartido.
+
+Se añadió una fila a docs/INFORME_ERIC.md, con decisión humana en primera persona.
+Esta actualización es documental: diff/whitespace y estados remotos comprobados;
+no se repiten pagos ni pruebas de aplicación por este cambio. Las validaciones
+previas corresponden a la implementación verificada, no a nuevas ejecuciones.
