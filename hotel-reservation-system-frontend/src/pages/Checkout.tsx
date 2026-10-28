@@ -8,6 +8,7 @@ import { money } from '../types'
 interface CheckoutView {
   id: string; stage: string; paymentStatus: string; amountCents: number
   expiresAt: string; reservationId: number | null; clientSecret: string | null
+  savedMethod: boolean; saveMethod: boolean
 }
 export default function Checkout() {
   const { id } = useParams(), mount = useRef<HTMLDivElement>(null)
@@ -38,7 +39,10 @@ export default function Checkout() {
       try {
         const config = await api<{ publishableKey: string }>('/checkouts/config')
         const client = await loadStripe(config.publishableKey)
-        if (!active || !client || !mount.current) return
+        if (!active || !client) return
+        stripe.current = client
+        if (checkout?.savedMethod) { setReady(true); return }
+        if (!mount.current) return
         const form = client.elements({ clientSecret: secret as string, locale: 'es' })
         const payment = form.create('payment')
         payment.on('ready', () => { if (active) setReady(true) })
@@ -50,13 +54,16 @@ export default function Checkout() {
     }
     setReady(false); void setup()
     return () => { active = false; unmount?.(); stripe.current = null; elements.current = null }
-  }, [secret])
+  }, [secret, checkout?.savedMethod])
   async function pay() {
-    if (!stripe.current || !elements.current) return
+    if (!stripe.current || (!checkout?.savedMethod && !elements.current) || !secret) return
     setBusy(true); setError('')
     try {
-      const result = await stripe.current.confirmPayment({ elements: elements.current,
-        confirmParams: { return_url: window.location.origin + '/checkout/' + id }, redirect: 'if_required' })
+      const returnUrl = window.location.origin + '/checkout/' + id
+      const result = checkout?.savedMethod
+        ? await stripe.current.confirmCardPayment(secret, { return_url: returnUrl })
+        : await stripe.current.confirmPayment({ elements: elements.current as StripeElements,
+          confirmParams: { return_url: returnUrl, ...(checkout?.saveMethod ? { payment_method_data: { allow_redisplay: 'always' as const } } : {}) }, redirect: 'if_required' })
       if (result.error) setError(result.error.message || 'El pago no pudo autorizarse.')
       setRetry(value => value + 1)
     } catch { setError('No se pudo consultar el pago. Comprueba su estado antes de iniciar otro checkout.') }
@@ -72,14 +79,16 @@ export default function Checkout() {
     SUCCEEDED: 'Pago de prueba completado', CANCEL_REQUESTED: 'Cancelación en proceso', CANCELLED: 'Checkout cancelado',
     EXPIRED: 'Tiempo de reserva agotado', FAILED: 'Pago fallido', REFUND_PENDING: 'Reembolso en proceso',
     REFUNDED: 'Reembolso completado', REFUND_FAILED: 'El reembolso requiere atención del responsable' }
-  return <section className="page max-w-2xl"><h1 className="title">Checkout inicial</h1>
-    <p className="notice-success">Entorno de pruebas Stripe. No se mueve dinero real. Usa únicamente tarjetas de prueba. Esta entrega no guarda tarjetas.</p>
+  return <section className="page max-w-2xl"><h1 className="title">Confirmar reserva y pago</h1>
+    <p className="notice-success">Entorno de pruebas Stripe. No se mueve dinero real. Usa únicamente tarjetas de prueba. Las tarjetas se gestionan en Stripe; esta aplicación no recibe su número ni CVV.</p>
     {error && <p role="alert" className="notice-error">{error} <button className="underline" onClick={() => setRetry(value => value + 1)}>Consultar de nuevo</button></p>}
     {!checkout && !error && <p role="status">Consultando checkout…</p>}
     {checkout && <div className="panel mt-5"><p>Total: <strong>{money(checkout.amountCents / 100)}</strong></p>
       <p role="status">{labels[checkout.stage] || checkout.stage}</p>
       {checkout.stage === 'PENDING' && <><p>Retención hasta: {new Date(checkout.expiresAt).toLocaleTimeString('es-PA')}. La autorización puede requerir verificación bancaria.</p>
         <div ref={mount} className="my-5" />
+        {checkout.savedMethod && <p>Usarás tu método guardado autorizado sin introducir nuevamente los datos de tarjeta.</p>}
+        {checkout.saveMethod && <p>Has autorizado guardar este método para futuras compras que confirmes personalmente. Puedes retirar la autorización desde Mis reservas.</p>}
         <p className="text-sm mb-3">Cancelación hasta el día de entrada inclusive, con reembolso total. El reembolso se verifica por separado.</p>
         <button className="action" disabled={!ready || busy} onClick={pay}>{busy ? 'Procesando…' : 'Autorizar y pagar'}</button>
         <button className="ml-4 underline" disabled={busy} onClick={cancel}>Cancelar checkout</button></>}
