@@ -90,9 +90,9 @@ web, se documenta en [AI Development Log](../../docs/AI_DEVELOPMENT_LOG.md).
 La auditoría histórica permanece intacta. Los respaldos privados de esa operación
 no pertenecen a los artifacts del harness ni se publican en GitHub.
 
-## Seguimiento de historial HU-03 (V3)
+## Seguimiento de historial HU-03 (V6)
 
-El harness también valida V3 en instalación limpia y adopción legacy, y ejecuta
+El harness también valida V6 en instalación limpia y adopción legacy, y ejecuta
 DemandHistoryBatchTests: seis pruebas de idempotencia, determinismo, intervalos,
 procedencia por filtros, rollback y reversión exclusiva con dependencias.
 Estas pruebas permanecen restringidas a hotel_test; no generan datos en desarrollo.
