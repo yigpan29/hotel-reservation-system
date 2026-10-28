@@ -1,4 +1,4 @@
-import { test, expect } from '/work/node_modules/@playwright/test/index.mjs'
+import { test, expect, type Locator, type Page } from '/work/node_modules/@playwright/test/index.mjs'
 
 let runtimeErrors: string[] = []
 test.beforeEach(async ({ page }) => {
@@ -11,6 +11,13 @@ test.afterEach(async ({ page }) => {
 })
 
 function future(days: number) { const d = new Date(); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10) }
+const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+async function chooseDay(calendar: Locator, iso: string) {
+  const [year, month, day] = iso.split('-').map(Number), name = monthNames[month - 1]
+  const header = calendar.locator('[aria-live="polite"]')
+  for (let step = 0; step < 12 && !(await header.innerText()).toLowerCase().includes(name + ' ' + year); step++) await calendar.getByRole('button', { name: 'Mes siguiente' }).click()
+  await calendar.getByRole('button', { name: new RegExp('^' + day + ' de ' + name + ' de ' + year + ' · (disponible|solo salida)$') }).click()
+}
 test('navegador: CSRF, validaciones, duplicados, identidad y cierre de sesión', async ({ page, context }) => {
   await page.goto('/register')
   await page.getByLabel('Usuario', { exact: true }).fill('x')
@@ -86,15 +93,31 @@ test('cliente: registro, login, búsqueda, reserva, historial, cancelación y pe
   await page.getByLabel('Destino o nombre').fill('Hotel Demo 1')
   await page.getByRole('button', { name: 'Buscar hoteles' }).click()
   await page.getByRole('link', { name: 'Ver habitaciones' }).first().click()
-  await page.getByLabel('Entrada', { exact: true }).fill(future(10))
-  await page.getByLabel('Salida', { exact: true }).fill(future(12))
-  await page.getByRole('button', { name: 'Consultar disponibilidad' }).click()
-  await page.getByRole('button', { name: 'Reservar habitación 101', exact: true }).click()
-  await expect(page.getByRole('region', { name: 'Confirmar reserva' })).toContainText('160')
-  await page.getByRole('button', { name: 'Confirmar reserva', exact: true }).click()
-  await expect(page.getByRole('status').filter({ hasText: 'confirmada' })).toBeVisible()
+  await page.getByRole('button', { name: 'Seleccionar fechas' }).click()
+  const calendar = page.getByRole('dialog', { name: 'Seleccionar fechas' })
+  await chooseDay(calendar, future(10))
+  await chooseDay(calendar, future(12))
+  await calendar.getByRole('button', { name: 'Confirmar fechas' }).click()
+  await expect(calendar).toBeHidden()
+  await page.getByRole('button', { name: 'Reservar Doble', exact: true }).click()
+  const summary = page.getByRole('dialog', { name: 'Resumen de tu reserva' })
+  for (const text of ['Hotel Demo 1', 'Doble', '101', future(10), future(12), '160']) await expect(summary).toContainText(text)
+  await summary.getByRole('button', { name: 'Volver' }).click()
+  await expect(summary).toBeHidden()
+  await page.getByRole('button', { name: 'Reservar Doble', exact: true }).click()
+  await summary.getByRole('button', { name: 'Confirmar reserva', exact: true }).click()
+  await expect(summary).toBeHidden()
+  await expect(page.getByText('¡Tu reserva está lista!')).toBeVisible()
+  await expect(page.getByText('Tu estadía ha sido confirmada. ¡Te esperamos!')).toBeVisible()
+  await expect(page.getByText(/Número de reserva: #\d+/)).toBeVisible()
+  // Con la reserva ya hecha no se vuelve a pedir elegir fechas: solo queda la confirmación.
+  await expect(page.getByRole('button', { name: 'Seleccionar fechas' })).toHaveCount(0)
+  await expect(page.getByText('Elige tus fechas para ver las habitaciones disponibles.')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Hacer otra reserva' })).toBeVisible()
   await page.getByRole('link', { name: 'Ver mis reservas' }).click()
   await expect(page.getByText('CONFIRMED', { exact: true })).toBeVisible()
+  // El tipo de habitación se ve junto al número, no solo el número.
+  await expect(page.getByText(/Habitación 101 · Doble/)).toBeVisible()
   await page.getByRole('button', { name: /Cancelar reserva #/ }).click()
   await expect(page.getByText('CANCELLED', { exact: true })).toBeVisible()
   await page.screenshot({ path: test.info().outputPath('my-reservations.png'), fullPage: true })
@@ -142,11 +165,62 @@ test('administrador: crear y editar inventario visible al público y filtrar res
   await page.screenshot({ path: test.info().outputPath('admin-reservations.png'), fullPage: true })
   await page.goto('/products?q=' + encodeURIComponent(hotelName))
   await page.getByRole('link', { name: 'Ver habitaciones' }).click()
-  await expect(page.getByRole('heading', { name: /Habitación E2E-1/ })).toBeVisible()
+  const publicCalendar = page.getByRole('dialog', { name: 'Seleccionar fechas' })
+  await page.getByRole('button', { name: 'Seleccionar fechas' }).click()
+  await chooseDay(publicCalendar, future(20))
+  await chooseDay(publicCalendar, future(21))
+  await publicCalendar.getByRole('button', { name: 'Confirmar fechas' }).click()
+  await expect(page.getByRole('heading', { name: 'Suite', exact: true })).toBeVisible()
   await expect(page.getByText(/180\.00 por noche/)).toBeVisible()
   await page.screenshot({ path: test.info().outputPath('hotel-detail.png'), fullPage: true })
 })
 
+async function openDateModal(page: Page) {
+  await page.goto('/products?q=' + encodeURIComponent('Hotel Demo 1'))
+  await page.getByRole('link', { name: 'Ver habitaciones' }).first().click()
+  await expect(page.getByText('Elige tus fechas para ver las habitaciones disponibles.')).toBeVisible()
+  await page.getByRole('button', { name: 'Seleccionar fechas' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Seleccionar fechas' })
+  await expect(dialog).toBeVisible()
+  return dialog
+}
+test('reserva: fechas en modal, disponibilidad por tipo y datos conservados al recargar', async ({ page }) => {
+  const dialog = await openDateModal(page)
+  await expect(dialog.getByRole('button', { name: 'Confirmar fechas' })).toBeDisabled()
+  await dialog.getByRole('button', { name: 'Cancelar' }).click()
+  await expect(dialog).toBeHidden()
+  await expect(page.getByRole('region', { name: 'Habitaciones disponibles' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Seleccionar fechas' }).click()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+  await page.getByRole('button', { name: 'Seleccionar fechas' }).click()
+  const start = future(60), end = future(62)
+  await chooseDay(dialog, start)
+  await chooseDay(dialog, end)
+  await expect(dialog.getByRole('status').last()).toContainText('2 noches')
+  await page.screenshot({ path: test.info().outputPath('date-modal.png'), fullPage: true })
+  await dialog.getByRole('button', { name: 'Confirmar fechas' }).click()
+  await expect(dialog).toBeHidden()
+  const rooms = page.getByRole('region', { name: 'Habitaciones disponibles' })
+  // Con fechas ya elegidas el botón ofrece cambiarlas, no volver a seleccionarlas.
+  await expect(page.getByRole('form', { name: 'Buscar disponibilidad' }).getByRole('button', { name: 'Cambiar fechas' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Seleccionar fechas' })).toHaveCount(0)
+  for (const text of ['Doble', 'Suite', '1 habitación disponible']) await expect(rooms).toContainText(text)
+  await expect(rooms.getByRole('link', { name: 'Iniciar sesión para reservar' }).first()).toBeVisible()
+  // Las fechas viven en la URL: recargar no pierde lo elegido.
+  await page.reload()
+  await expect(page.getByRole('region', { name: 'Habitaciones disponibles' })).toContainText('Suite')
+  await expect(page.getByText(start + ' → ' + end)).toBeVisible()
+  await expect(page).toHaveURL(new RegExp('startDate=' + start))
+})
+test('móvil: el modal de fechas cabe en la pantalla sin desbordamiento', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  const dialog = await openDateModal(page)
+  const box = await dialog.boundingBox()
+  expect(box && box.x >= 0 && box.x + box.width <= 390).toBe(true)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await page.screenshot({ path: test.info().outputPath('date-modal-mobile.png'), fullPage: true })
+})
 test('móvil: navegación y sesión accesibles sin desbordamiento', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
