@@ -112,10 +112,11 @@ class SystemIntegrationTests {
     }
     @Test void reservationStoresAgreedPriceAndHistory() throws Exception {
         var session=login("owner","Owner-test-123");
-        var result=create(session,input()).andExpect(status().isCreated()).andExpect(jsonPath("$.nightlyPrice").value(80)).andExpect(jsonPath("$.totalPrice").value(160)).andExpect(jsonPath("$.status").value("CONFIRMED")).andReturn();
+        var result=create(session,input()).andExpect(status().isCreated()).andExpect(jsonPath("$.roomType").value("Doble")).andExpect(jsonPath("$.nightlyPrice").value(80)).andExpect(jsonPath("$.totalPrice").value(160)).andExpect(jsonPath("$.status").value("CONFIRMED")).andReturn();
         Long id=json.readTree(result.getResponse().getContentAsString()).get("id").asLong();
-        rooms.save(roomId,new Requests.RoomInput(hotelId,"101","Doble",300,true));
-        mvc.perform(get("/api/reservations/"+id).session(session)).andExpect(status().isOk()).andExpect(jsonPath("$.totalPrice").value(160));
+        rooms.save(roomId,new Requests.RoomInput(hotelId,"101","Suite",300,true));
+        mvc.perform(get("/api/reservations/"+id).session(session)).andExpect(status().isOk()).andExpect(jsonPath("$.totalPrice").value(160)).andExpect(jsonPath("$.roomType").value("Doble"));
+        assertThat(jdbc.queryForObject("select room_type from reservations where id=?",String.class,id)).isEqualTo("Doble");
         mvc.perform(get("/api/reservations/me").session(session)).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
         mvc.perform(post("/api/reservations/"+id+"/cancel").session(session).with(csrf())).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CANCELLED")).andExpect(jsonPath("$.cancelledAt").isNotEmpty());
         mvc.perform(post("/api/reservations/"+id+"/cancel").session(session).with(csrf())).andExpect(status().isOk());
@@ -141,6 +142,21 @@ class SystemIntegrationTests {
         assertThat(reservations.create("other",new Requests.ReservationInput(roomId,end,end.plusDays(1))).status()).isEqualTo("CONFIRMED");
         mvc.perform(get("/api/rooms/availability").param("hotelId",hotelId.toString()).param("startDate",start.toString()).param("endDate",end.toString())).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
     }
+    @Test void calendarOccupancyIsPublicDerivedFromConfirmedStaysAndBounded() throws Exception {
+        reservations.create("owner",input());
+        Long cancelled=reservations.create("other",new Requests.ReservationInput(roomId,end.plusDays(1),end.plusDays(3))).id();
+        reservations.cancel(cancelled,"other",false);
+        mvc.perform(get("/api/rooms/"+roomId+"/occupancy")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.roomId").value(roomId)).andExpect(jsonPath("$.occupied.length()").value(1))
+            .andExpect(jsonPath("$.occupied[0].startDate").value(start.toString()))
+            .andExpect(jsonPath("$.occupied[0].endDate").value(end.toString()))
+            .andExpect(jsonPath("$.occupied[0].username").doesNotExist());
+        mvc.perform(get("/api/rooms/"+roomId+"/occupancy?from="+end+"&to="+end.plusDays(30))).andExpect(status().isOk())
+            .andExpect(jsonPath("$.occupied.length()").value(0));
+        for(String window:List.of("?from="+start+"&to="+start,"?from="+start+"&to="+start.plusDays(401)))
+            mvc.perform(get("/api/rooms/"+roomId+"/occupancy"+window)).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/rooms/"+(roomId+999)+"/occupancy")).andExpect(status().isNotFound());
+    }
     @Test void twoConcurrentRequestsProduceExactlyOneReservation() throws Exception {
         ExecutorService pool=Executors.newFixedThreadPool(2);CountDownLatch ready=new CountDownLatch(2),go=new CountDownLatch(1);
         Callable<Integer> task=()->{ready.countDown();if(!go.await(10,TimeUnit.SECONDS))throw new IllegalStateException("Barrier timed out");try{reservations.create("owner",input());return 201;}catch(ApiException e){return e.getStatus().value();}};
@@ -162,7 +178,7 @@ class SystemIntegrationTests {
     @Test void postgresConstraintsAndForeignKeysProtectIntegrity() {
         assertThatThrownBy(()->jdbc.update("insert into rooms(hotel_id,room_number,price_per_night) values(?, 'BAD', -1)",hotelId)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
         assertThatThrownBy(()->jdbc.update("insert into rooms(hotel_id,room_number) values(99999,'BAD')")).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
-        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where success",Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where success",Integer.class)).isEqualTo(3);
     }
     @Test void pastReservationsCannotBeCancelledAndRemainStored() throws Exception {
         jdbc.update("insert into reservations(room_id,user_id,start_date,end_date,status,created_at,nightly_price,total_price) values(?,?,?,?, 'CONFIRMED',now(),80,80)",roomId,auth.require("owner").getId(),RoomServiceImp.today().minusDays(2).atStartOfDay(),RoomServiceImp.today().minusDays(1).atStartOfDay());

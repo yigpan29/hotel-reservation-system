@@ -17,7 +17,7 @@ public class ReservationServiceImp {
         Room room=rooms.lockById(input.roomId()).orElseThrow(()->ApiException.missing("Habitación"));
         if(!room.getActive()||!room.getHotel().getActive()||room.getPricePerNight()==null||room.getPricePerNight()<0)throw ApiException.conflict("La habitación no está habilitada para nuevas reservas");
         if(reservations.overlaps(room.getId(),input.startDate().atStartOfDay(),input.endDate().atStartOfDay()))throw ApiException.conflict("La habitación ya está reservada en esas fechas");
-        Reservation r=new Reservation();r.setRoom(room);r.setUser(users.require(username));r.setStartDate(input.startDate().atStartOfDay());r.setEndDate(input.endDate().atStartOfDay());r.setStatus("CONFIRMED");r.setCreatedAt(RoomServiceImp.now());r.setNightlyPrice(room.getPricePerNight());r.setTotalPrice(Math.multiplyExact(nights,room.getPricePerNight().longValue()));
+        Reservation r=new Reservation();r.setRoomType(room.getType());r.setRoom(room);r.setUser(users.require(username));r.setStartDate(input.startDate().atStartOfDay());r.setEndDate(input.endDate().atStartOfDay());r.setStatus("CONFIRMED");r.setCreatedAt(RoomServiceImp.now());r.setNightlyPrice(room.getPricePerNight());r.setTotalPrice(Math.multiplyExact(nights,room.getPricePerNight().longValue()));
         return Views.reservation(reservations.saveAndFlush(r));
     }
     private void owns(Reservation r,String username,boolean admin){if(!admin&&!r.getUser().getUsername().equalsIgnoreCase(username))throw new ApiException(HttpStatus.FORBIDDEN,"No puedes acceder a una reserva ajena");}

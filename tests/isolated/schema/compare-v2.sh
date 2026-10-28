@@ -9,5 +9,7 @@ psql -X -At -v ON_ERROR_STOP=1 -U hotel_test -d hotel_adopt -f /checks/schema/pr
 psql -X -At -v ON_ERROR_STOP=1 -U hotel_test -d hotel_adopt -c "SELECT sequencename || ':' || last_value::text FROM pg_sequences WHERE schemaname='public' ORDER BY sequencename" > /tmp/current-sequences.txt
 diff -u /tmp/legacy-values.txt /tmp/current-values.txt
 diff -u /tmp/legacy-sequences.txt /tmp/current-sequences.txt
+# V5 rellena el tipo solo en filas que cumplen las restricciones actuales: la de estado legacy queda intacta.
+test "$(psql -X -At -v ON_ERROR_STOP=1 -U hotel_test -d hotel_adopt -c 'SELECT coalesce(room_type, $$<null>$$) FROM reservations ORDER BY id' | paste -sd' ' -)" = '<null> Fixture'
 psql -X -v ON_ERROR_STOP=1 -U hotel_test -d hotel_adopt -c 'SELECT version,type,success FROM flyway_schema_history ORDER BY installed_rank;'
 echo V2_SCHEMA_EQUAL_AND_LEGACY_DATA_IDENTITIES_PRESERVED

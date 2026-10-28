@@ -28,6 +28,17 @@ public class RoomServiceImp {
             Long total=nights==null||r.getPricePerNight()==null?null:Math.multiplyExact(nights,r.getPricePerNight().longValue());return Views.room(r,available,total);
         }).toList();
     }
+    @Transactional(readOnly=true) public Views.RoomAvailabilityView occupancy(Long roomId,LocalDate from,LocalDate to,boolean admin){
+        Room room=rooms.findById(roomId).orElseThrow(()->ApiException.missing("Habitación"));
+        if(!admin&&(!room.getActive()||!room.getHotel().getActive()))throw ApiException.missing("Habitación");
+        LocalDate start=from==null?today():from;LocalDate end=to==null?start.plusMonths(12):to;
+        if(!end.isAfter(start))throw ApiException.bad("La fecha final del calendario debe ser posterior a la inicial");
+        if(ChronoUnit.DAYS.between(start,end)>400)throw ApiException.bad("El calendario admite como máximo 400 días por consulta");
+        var occupied=bookings.occupancy(roomId,start.atStartOfDay(),end.atStartOfDay()).stream()
+            .map(r->new Views.OccupiedRange(r.getStartDate().toLocalDate(),r.getEndDate().toLocalDate())).toList();
+        return new Views.RoomAvailabilityView(room.getId(),room.getHotel().getId(),room.getHotel().getName(),room.getRoomNumber(),
+            room.getType(),room.getPricePerNight(),room.getActive(),start,end,occupied);
+    }
     public Views.RoomView save(Long id,Requests.RoomInput input){
         var hotel=hotels.require(input.hotelId());Room room=id==null?new Room():rooms.lockById(id).orElseThrow(()->ApiException.missing("Habitación"));
         if(id!=null&&!room.getHotel().getId().equals(input.hotelId()))throw ApiException.bad("No se puede trasladar una habitación a otro hotel");

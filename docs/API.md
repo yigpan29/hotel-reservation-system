@@ -36,10 +36,19 @@ El registro asigna siempre USER, aunque se envíe `role: ADMIN`.
 | GET `/hotels/{id}/rooms` | Habitaciones activas del hotel |
 | GET `/hotels/{id}/rooms?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD` | Habitaciones con `available` y `totalPrice` calculados |
 | GET `/rooms/availability?hotelId=...&startDate=...&endDate=...` | Solo habitaciones disponibles |
+| GET `/rooms/{id}/occupancy?from=YYYY-MM-DD&to=YYYY-MM-DD` | Rangos ocupados de una habitación activa, para el calendario |
 
 Hotel: `{id,name,location,description,rating,active}`. Habitación:
 `{id,hotelId,hotelName,roomNumber,type,pricePerNight,active,available,totalPrice}`.
 Sin fechas, `available` y `totalPrice` son null: no simulan disponibilidad global.
+
+El calendario de disponibilidad consume `/rooms/{id}/occupancy`:
+`{roomId,hotelId,hotelName,roomNumber,type,pricePerNight,active,from,to,occupied}`.
+Cada elemento de `occupied` es `{startDate,endDate}` con entrada inclusiva y salida
+exclusiva, y proviene solo de reservas CONFIRMED: la noche `endDate` queda libre.
+Sin parámetros cubre doce meses desde hoy; `to` debe ser posterior a `from` y el
+rango máximo por consulta es de 400 días. No expone usuarios ni identificadores
+de reserva, solo las fechas que bloquean inventario.
 
 ## Reservas
 
@@ -50,8 +59,11 @@ Sin fechas, `available` y `totalPrice` son null: no simulan disponibilidad globa
 | GET `/reservations/{id}` | Propietario o ADMIN |
 | POST `/reservations/{id}/cancel` | Propietario o ADMIN, CSRF; actualiza y conserva fila |
 
-Reserva: `{id,hotelId,hotelName,roomId,roomNumber,userId,username,startDate,endDate,
-status,nightlyPrice,totalPrice,createdAt,cancelledAt}`. Las fechas persistidas
+Reserva: `{id,hotelId,hotelName,roomId,roomNumber,roomType,userId,username,startDate,endDate,
+status,nightlyPrice,totalPrice,createdAt,cancelledAt}`. `roomType` es el tipo de la
+habitación al reservar y, como la tarifa, no cambia si luego se reclasifica la habitación
+(null si la habitación no tenía tipo). Las reservas anteriores a V5 se rellenaron con el tipo
+actual de su habitación. Las fechas persistidas
 son timestamps ISO sin zona por compatibilidad. Las nuevas estancias usan medianoche
 de las fechas enviadas; entrada inclusiva y salida exclusiva. El reloj de negocio
 y los nuevos registros de creación/cancelación usan America/Panama.

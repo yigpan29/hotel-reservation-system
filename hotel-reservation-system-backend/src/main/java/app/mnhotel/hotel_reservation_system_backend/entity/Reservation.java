@@ -31,6 +31,7 @@ public class Reservation {
     @Column(name="nightly_price") private Integer nightlyPrice;
     @Column(name="total_price") private Long totalPrice;
     @Column(name="cancelled_at") private LocalDateTime cancelledAt;
+    @Column(name="room_type") private String roomType;
 	@Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
