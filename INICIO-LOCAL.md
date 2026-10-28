@@ -2,10 +2,14 @@
 
 Aplicación React 18/TypeScript/Vite/Tailwind y Spring Boot 3.3.2/Java 17,
 PostgreSQL 17 y Flyway 10.20.1. Permite registro, sesión, búsqueda, disponibilidad,
-reserva/cancelación y gestión administrativa. No procesa pagos ni implementa
-HU-01 ni HU-02. HU-03 está disponible en Administración → Previsión de demanda;
-ver [método y demostración aislada](docs/HU03_PREVISION_DEMANDA.md). Una base sin
-ocho semanas de referencia muestra un aviso, no estimaciones fabricadas.
+reserva/cancelación y gestión administrativa. Por defecto no procesa pagos.
+HU-01 añade checkout opcional Stripe sandbox y reutilización consentida; ver
+[guía HU-01](docs/HU01_CHECKOUT_INICIAL.md). HU-03 está disponible en
+Administración → Previsión de demanda; ver [método y demo](docs/HU03_PREVISION_DEMANDA.md).
+Una base sin ocho semanas de referencia muestra un aviso, no estimaciones fabricadas.
+Se conserva el calendario de HU-02 y la selección de habitaciones y huéspedes de HU-06.
+Checkout confirma todas las habitaciones con un pago; cancelar una devuelve solo su importe.
+V8 checkout requiere coordinar V7 de HU-05 antes de un despliegue compartido.
 
 ## Demostración aislada (opción recomendada para la presentación)
 

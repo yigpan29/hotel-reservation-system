@@ -118,7 +118,8 @@ Estados nuevos: CONFIRMED y CANCELLED. Solo CONFIRMED bloquea inventario. Se pue
 cancelar una reserva CONFIRMED hasta el día de entrada inclusive; una cancelación
 repetida es idempotente y conserva su primer timestamp. Reservas ya iniciadas en
 días anteriores y estados legacy desconocidos devuelven 409 al cancelar.
-No hay borrado físico, pagos, checkout ni edición de fechas en esta versión.
+No hay borrado físico ni edición de fechas. El flujo anterior describe el modo
+por defecto sin pago; el checkout sandbox opcional se especifica a continuación.
 
 `/reservations/group` recibe una entrada por cada habitación que pidió el cliente, con sus
 huéspedes ya configurados y el tipo elegido para ellos: crea una reserva por habitación y
@@ -164,6 +165,70 @@ credenciales incorrectas, 403 CSRF/rol/propiedad, 404 inexistente/inactivo,
 al cliente. El CRUD antiguo `/api/hotel/*` se sustituyó por el contrato único
 de esta tabla; se reutilizan entidades/repositorios y servicios de hotel existentes.
 
+## Checkout y reserva recurrente Stripe sandbox — HU-01 (#5)
+
+Flag `HOTEL_CHECKOUT_ENABLED=false` por defecto. Cuando es true, POST
+`/reservations` y `/reservations/group` devuelven 409: no permite confirmar por fuera del checkout.
+El flag requiere claves sandbox y la migración de checkout aplicada; nunca usar contra desarrollo
+sin una adopción autorizada aparte. La aplicación guarda referencias consentidas
+del proveedor y metadatos enmascarados, nunca PAN/CVV.
+
+| Método y ruta | Acceso / resultado |
+|---|---|
+| GET `/checkouts/config` | Sesión; `{enabled,publishableKey,mode:"test"}`; nunca clave secreta |
+| POST `/checkouts` | Sesión + CSRF + `Idempotency-Key` de 16–80 caracteres `[a-zA-Z0-9_-]`; `{roomId,startDate,endDate,paymentMethodId?,saveMethod:false}`; 200 checkout |
+| POST `/checkouts/group` | Sesión + CSRF + Idempotency-Key; `{hotelId,rooms:[{type,adults,children}],startDate,endDate,paymentMethodId?,saveMethod:false}`; 1–20 habitaciones; 200 checkout conjunto |
+| GET `/checkouts/me` | Sesión; últimos 20 checkouts propios, sin clientSecret |
+| POST `/checkouts/{uuid}/sync` | Propietario + CSRF; reconcilia estado, puede capturar/confirmar y devuelve checkout |
+| POST `/checkouts/{uuid}/cancel` | Propietario + CSRF; cancela checkout pendiente, idempotente |
+| POST `/checkouts/stripe-webhook` | Sin cookie/CSRF; firma `Stripe-Signature` obligatoria sobre cuerpo original y modo test |
+| GET `/payment-methods` | Solo métodos propios autorizados, hasta 50: `{id,brand,lastFour,expiryMonth,expiryYear,expired}` |
+| POST `/payment-methods/{uuid}/revoke` | Propietario + CSRF; retirada local inmediata, desvinculación del proveedor recuperable; 200 |
+
+Checkout: `{id,stage,paymentStatus,amountCents,currency,expiresAt,reservationId,clientSecret,savedMethod,saveMethod,items}`.
+`clientSecret` solo puede aparecer en sync del propietario cuando sigue PENDING;
+no se persiste ni aparece en listados. Respuestas protegidas sin caché por Security.
+`amountCents` es USD en centavos; reserva conserva `totalPrice` en USD enteros.
+Precio/moneda/propiedad/referencias se verifican en servidor, no se aceptan del cliente.
+Una clave repetida con el mismo cuerpo recupera la operación; con otro cuerpo, 409.
+La comparación incluye método elegido y consentimiento. `paymentMethodId` es un
+UUID local propio y activo, nunca un ID Stripe arbitrario. No se admite elegir
+método existente y saveMethod=true a la vez. Un UUID ausente devuelve 404; ajeno
+403; retirado, vencido o con propietario proveedor distinto, 409. Se revierte
+la retención o se termina FAILED según el punto del rechazo, sin confirmar.
+
+Guardar requiere saveMethod=true explícito, casilla inicialmente desmarcada,
+versión hu01-on-session-v1 y fecha persistidas. Crea Customer privado idempotente
+y PaymentIntent setup_future_usage=on_session. La referencia se activa junto con
+la reserva solo tras cobro completo verificado. Sin consentimiento no se crea
+Customer ni método local. No se hacen cobros off-session. Reutilizar exige nueva
+confirmación del usuario y puede requerir 3DS; no exige volver a introducir PAN.
+Retirar autorización impide nuevas compras incluso si Stripe no responde; el
+worker reintenta la desvinculación. No cancela operaciones iniciadas previamente.
+
+Stages: PENDING, FINALIZING, SUCCEEDED, CANCEL_REQUESTED, CANCELLED, FAILED,
+EXPIRED, REFUND_PENDING, REFUNDED, REFUND_FAILED. `paymentStatus` conserva un
+estado no sensible de Stripe o de la operación, no acredita por sí solo una reserva.
+PENDING retiene inventario hasta expiresAt (10 minutos); FINALIZING lo protege
+durante captura/recuperación incierta. Solo cobro `succeeded` verificado crea
+reserva CONFIRMED. Esos estados no se añaden a `reservations.status`.
+
+Una autorización tardía se cancela; un cobro sin derecho al inventario se
+reembolsa sin crear reserva. Timeout no equivale a rechazo ni a éxito: la
+operación sigue recuperable. Sin configuración válida/ante indisponibilidad
+del proveedor: 503, sin fallback a confirmación gratuita. Firma inválida: 400.
+FINALIZING no admite cancelación del checkout hasta conocer el resultado (409).
+
+POST `/reservations/{id}/cancel` conserva propiedad/ADMIN y plazo existentes.
+Para una reserva pagada individual, CANCELLED y la solicitud de reembolso total se guardan
+juntas; la respuesta de reserva conserva su contrato. El reembolso se consulta
+por checkout propio y puede seguir pendiente o fallar. Repetir cancelación no
+duplica reembolso. Filas legacy sin checkout no generan devoluciones inventadas.
+
+Worker recuperable cada 15s y webhooks idempotentes por operación/estado. No se
+acepta un redirect del navegador como prueba de pago. Detalles, credenciales,
+aislamiento y prueba humana: [HU01_CHECKOUT_INICIAL.md](HU01_CHECKOUT_INICIAL.md).
+
 ## Procedencia de demanda HU-03 (solo ADMIN)
 
 GET /api/admin/demand/history y /api/admin/demand/forecast conservan sus filtros.
@@ -176,3 +241,29 @@ No existe endpoint HTTP para cargar o revertir lotes. Véase
 # HU-04: descarga de constancia
 
 `GET /api/reservations/{id}/certificate`: sesión autenticada, solo propietario incluso si el usuario es administrador. Respuesta 200 PDF adjunto `constancia-reserva-ID.pdf`, sin caché (`no-store, private`). 401 sin sesión, 403 reserva ajena, 404 inexistente. GET sin escritura ni requisito CSRF; las operaciones mutantes conservan su protección. Incluye estado actual, cancelación, hotel/habitación, fechas y precios guardados; valores heredados ausentes se indican sin inventarlos. No certifica pagos ni es factura. Véase [HU-04](HU04_CONSTANCIA.md).
+
+## Checkout conjunto y devolución por habitación (integración HU-01/HU-06)
+
+`items` contiene `{position,roomId,roomNumber,roomType,amountCents,
+adults,children,reservationId,refundState}`. Es vacío para el contrato single.
+`reservationId` del padre conserva la primera reserva por compatibilidad;
+consultar todas en items. No se exponen referencias privadas de reembolso.
+El importe final es la suma de líneas congeladas del servidor. La estimación
+por tipo del resumen no sustituye al total mostrado antes de autorizar el pago.
+
+La misma clave exige igual cuerpo, método y consentimiento; no sirve entre single
+y grupo. Si falta una unidad no se retiene ninguna. Se bloquean IDs en orden,
+y calendario, disponibilidad y asignación incluyen todas las retenciones activas.
+Un PaymentIntent autoriza/captura el total; todas se confirman en una transacción.
+Si el inventario cambia después del cobro se devuelve todo sin reservas parciales.
+
+POST `/reservations/{id}/cancel` registra una devolución por el importe congelado
+de esa línea; no cancela otras habitaciones. RefundState: NONE/PENDING/SUCCEEDED/FAILED.
+El padre sigue SUCCEEDED mientras corresponda, con paymentStatus
+partial_refund_pending, partially_refunded o refund_requires_attention.
+Solo todas las líneas devueltas llevan a REFUNDED. Cancelación repetida y
+reconciliación concurrente reutilizan la misma operación; no duplican devolución.
+Sesión, propiedad, ADMIN y plazo de cancelación conservan sus reglas existentes.
+
+Migraciones activas de esta rama: V1–V6/V8. V7 se reserva para HU-05 y debe
+coordinarse antes de desplegar V8 a entornos compartidos; no está integrada aquí.

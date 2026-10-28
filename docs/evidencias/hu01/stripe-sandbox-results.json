@@ -1,0 +1,38 @@
+{
+  "mode": "real_stripe_sandbox",
+  "status": "passed",
+  "results": [
+    {
+      "case": "first_checkout_without_save_and_idempotency",
+      "passed": true
+    },
+    {
+      "case": "first_checkout_with_explicit_consent",
+      "passed": true
+    },
+    {
+      "case": "recurrent_checkout_real_saved_method",
+      "passed": true
+    },
+    {
+      "case": "decline_releases_inventory_without_paid_reservation",
+      "passed": true
+    },
+    {
+      "case": "3ds_requires_action_without_premature_confirmation",
+      "passed": true
+    },
+    {
+      "case": "paid_cancellation_and_verified_refunds",
+      "passed": true
+    },
+    {
+      "case": "revoke_saved_method",
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "API confirmation uses official test PaymentMethod tokens; this is not a Stripe.js browser interaction.",
+    "3DS challenge completion and real Stripe webhook delivery are not verified."
+  ]
+}

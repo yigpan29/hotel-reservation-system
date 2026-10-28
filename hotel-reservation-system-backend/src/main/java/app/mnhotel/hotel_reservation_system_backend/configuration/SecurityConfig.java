@@ -12,6 +12,7 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import app.mnhotel.hotel_reservation_system_backend.repository.UserRepository;
 @Configuration
 public class SecurityConfig {
@@ -23,11 +24,13 @@ public class SecurityConfig {
     @Bean HttpSessionSecurityContextRepository contextRepository(){return new HttpSessionSecurityContextRepository();}
     @Bean HttpSessionCsrfTokenRepository csrfRepository(){return new HttpSessionCsrfTokenRepository();}
     @Bean SecurityFilterChain security(HttpSecurity http,ObjectMapper json,HttpSessionSecurityContextRepository context,HttpSessionCsrfTokenRepository csrf) throws Exception {
-        http.csrf(c->c.csrfTokenRepository(csrf))
+        http.csrf(c->c.csrfTokenRepository(csrf).ignoringRequestMatchers(new AntPathRequestMatcher("/api/checkouts/stripe-webhook","POST")))
           .securityContext(c->c.securityContextRepository(context))
           .authorizeHttpRequests(a->a
             .requestMatchers("/api/auth/csrf","/api/auth/register","/api/auth/login","/api/health","/error").permitAll()
+            .requestMatchers(HttpMethod.POST,"/api/checkouts/stripe-webhook").permitAll()
             .requestMatchers(HttpMethod.GET,"/api/hotels/**","/api/rooms/availability","/api/rooms/allocation","/api/rooms/*/occupancy").permitAll()
+
             .requestMatchers("/api/admin/**").hasRole("ADMIN")
             .requestMatchers("/api/**").authenticated().anyRequest().denyAll())
           .exceptionHandling(e->e.authenticationEntryPoint((req,res,ex)->{res.setStatus(401);res.setContentType("application/json");json.writeValue(res.getWriter(),Map.of("message","Inicia sesión para continuar"));})

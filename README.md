@@ -8,8 +8,11 @@ El administrador gestiona hoteles/habitaciones y consulta o cancela reservas.
 
 React 18 + TypeScript + Vite + Tailwind; Java 17 + Spring Boot 3.3.2,
 Spring Security con sesión/CSRF, JPA y PostgreSQL 17; Flyway 10.20.1.
-No usa JWT, pagos externos ni datos de tarjetas. Payment y Review se conservan
-por compatibilidad; no hay flujos de pago ni publicación de reseñas.
+No usa JWT. Payment y Review se conservan por compatibilidad; no hay publicación
+de reseñas. El checkout Stripe sandbox es opcional y está deshabilitado
+por defecto; permite guardado consentido en Stripe y reserva recurrente con sus referencias,
+sin recibir números de tarjeta ni CVV en la aplicación.
+Guía y límites: [checkout y reserva recurrente HU-01](docs/HU01_CHECKOUT_INICIAL.md).
 
 ## Ejecutar y demostrar
 
@@ -36,18 +39,25 @@ existente requiere respaldo, revisión y baseline explícito autorizado.
 - [Evidencia y diagnóstico histórico](docs/diagnosticos/ESTABILIZACION.md).
 - [Auditoría inicial conservada](docs/auditorias/AUDITORIA_INICIAL.md).
 
-La CI valida frontend y el ciclo completo DB/JUnit/Playwright en PR a `base`
+La CI valida frontend y el ciclo completo DB/JUnit/Playwright en PR a `base` y `main`
 y por ejecución manual, con reportes como artifacts. No despliega a producción.
 
-## Exclusiones
+## Historias integradas y pendientes
 
-HU-01 (checkout acelerado/medios de pago) y HU-02 (calendario interactivo avanzado)
-permanecen fuera de esta rama. HU-03 incorpora la pestaña administrativa
-**Previsión de demanda**, con histórico, promedio semanal de ocho semanas,
-gráficos y horizonte de 30 días. Es informativa y no modifica precios/inventario.
-Método, limitaciones y demo aislada: [HU03_PREVISION_DEMANDA.md](docs/HU03_PREVISION_DEMANDA.md).
-El histórico básico de reservas se conserva para el funcionamiento del sistema;
-no implementa esas historias individuales.
-# HU-04: constancia PDF
+HU-02 aporta calendario; HU-06 aporta selección de habitaciones y huéspedes.
+HU-01 incorpora checkout opcional Stripe sandbox y reutilización consentida.
+HU-03 incorpora la pestaña administrativa **Previsión de demanda**, con histórico,
+promedio semanal de ocho semanas, gráficos y horizonte de 30 días. Es informativa
+y no modifica precios/inventario. [Método y demo](docs/HU03_PREVISION_DEMANDA.md).
+El histórico básico de reservas se conserva para el funcionamiento del sistema.
+
+## HU-04: constancia PDF
 
 Desde **Mis reservas** se puede descargar la constancia de una reserva propia, confirmada o cancelada. Incluye sus datos y precios pactados; no acredita pagos ni es factura fiscal. [Contrato, seguridad y demostración](docs/HU04_CONSTANCIA.md).
+
+La integración con HU-05 y las historias de main requiere revisión coordinada.
+
+HU-01 conserva la selección múltiple de main: un pago confirma todas las
+habitaciones; cancelar una solicita únicamente su reembolso. Migraciones nuevas
+V8 checkout y V7 reservada para HU-05: coordinar antes de desplegar a una base
+compartida. La suite aislada prueba V1–V6/V8 sin modificar desarrollo.

@@ -1,4 +1,8 @@
 const base = import.meta.env.VITE_API_BASE || '/api'
+// getRandomValues is available on the isolated HTTP origin too; randomUUID requires a secure context.
+export function idempotencyKey() {
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)), value => value.toString(16).padStart(2, '0')).join('')
+}
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message) }
 }
