@@ -2,8 +2,10 @@
 
 Aplicación React 18/TypeScript/Vite/Tailwind y Spring Boot 3.3.2/Java 17,
 PostgreSQL 17 y Flyway 10.20.1. Permite registro, sesión, búsqueda, disponibilidad,
-reserva/cancelación y gestión administrativa. No procesa pagos ni implementa
-HU-01, HU-02 o HU-03.
+reserva/cancelación y gestión administrativa. Por defecto no procesa pagos.
+HU-01 añade checkout opcional Stripe sandbox, guardado consentido y reutilización
+del método autorizado. Guía: [HU01_CHECKOUT_INICIAL.md](docs/HU01_CHECKOUT_INICIAL.md).
+HU-02 y HU-03 no forman parte de este cambio.
 
 ## Demostración aislada (opción recomendada para la presentación)
 

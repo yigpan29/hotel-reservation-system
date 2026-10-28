@@ -79,3 +79,27 @@ La adopción posterior de desarrollo, autorizada expresamente tras el diagnósti
 web, se documenta en [AI Development Log](../../docs/AI_DEVELOPMENT_LOG.md).
 La auditoría histórica permanece intacta. Los respaldos privados de esa operación
 no pertenecen a los artifacts del harness ni se publican en GitHub.
+
+## HU-01 checkout completo
+
+La suite aplica la migración aditiva de checkout (numeración final pendiente de
+coordinación con base) y compara el esquema
+completo de instalación nueva y adopción, preservando datos/secuencias legacy.
+Los nombres históricos `compare-v2.sh` y del log se conservan; ahora su dump
+incluye todas las migraciones activas. La rama anterior a integración usa la
+versión privada 3 para checkout; debe renumerarse antes de integrar con HU-03.
+
+`CheckoutIntegrationTests` usa PostgreSQL real y un DOBLE de PaymentGateway:
+checkout inicial, fallos, expiración, idempotencia, recuperación, permisos/CSRF,
+concurrencia de retenciones/finalización y reembolsos.
+Las pruebas de método guardado verifican consentimiento versionado, ausencia de
+guardado sin casilla, reutilización sin PAN, propiedad local/proveedor, caducidad,
+retirada local incluso con proveedor caído, CSRF, rechazo recurrente y concurrencia.
+`StripeWebhookTests` valida firmas con el SDK oficial usando exclusivamente secretos sintéticos.
+Los E2E `checkout.spec.ts` interceptan el contrato visual: no hacen pagos Stripe.
+El resto de la suite mantiene checkout deshabilitado para regresión legacy.
+
+La demo integral con el proveedor exige claves privadas y el overlay opt-in
+`compose.stripe-test.yaml`; no se ejecuta automáticamente ni altera la red
+interna de PostgreSQL. Ver [guía HU-01](../../docs/HU01_CHECKOUT_INICIAL.md).
+No presentar estas pruebas con dobles como evidencia de una transacción sandbox.

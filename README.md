@@ -6,8 +6,11 @@ El administrador gestiona hoteles/habitaciones y consulta o cancela reservas.
 
 React 18 + TypeScript + Vite + Tailwind; Java 17 + Spring Boot 3.3.2,
 Spring Security con sesión/CSRF, JPA y PostgreSQL 17; Flyway 10.20.1.
-No usa JWT, pagos externos ni datos de tarjetas. Payment y Review se conservan
-por compatibilidad; no hay flujos de pago ni publicación de reseñas.
+No usa JWT. Payment y Review se conservan por compatibilidad; no hay publicación
+de reseñas. El checkout inicial Stripe sandbox es opcional y está deshabilitado
+por defecto; permite guardado consentido en Stripe y reserva recurrente con sus referencias,
+sin recibir números de tarjeta ni CVV en la aplicación.
+Guía y límites: [primer checkout HU-01](docs/HU01_CHECKOUT_INICIAL.md).
 
 ## Ejecutar y demostrar
 
@@ -39,7 +42,7 @@ y por ejecución manual, con reportes como artifacts. No despliega a producción
 
 ## Exclusiones
 
-HU-01 (checkout acelerado/medios de pago), HU-02 (calendario interactivo avanzado)
+HU-02 (calendario interactivo avanzado)
 y HU-03 (pronósticos/gráficos de demanda) permanecen fuera de esta rama.
 El histórico básico de reservas se conserva para el funcionamiento del sistema;
 no implementa esas historias individuales.

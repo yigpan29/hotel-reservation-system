@@ -345,3 +345,175 @@ efímeros del harness no se presentan como sustitutos.
 
 El catálogo y `yonielvegas` están listos; el cierre de ambas cuentas administrativas
 queda condicionado a esa entrada privada. HU-01/HU-02/HU-03 y pagos siguen excluidos.
+
+## HU-01 (#5), entrega 1 — 26–27/10/2026, America/Panama
+
+Responsable humano: Eric. Alcance aprobado en conversación: Stripe sandbox,
+checkout inicial y después reutilización. Eric decidió expresamente comenzar
+**solo por el primer checkout**. No se declara HU-01 terminada: guardado,
+consentimiento de reutilización y compra recurrente quedan para entrega 2.
+
+Antes de editar: árbol limpio en base e899442, fetch origin, revisión de issue #5,
+README/API/INICIO-LOCAL, flujo de reservas/Payment/migraciones/pruebas. No se
+encontraron AGENTS.md aplicables. El conector GitHub dio 404; GitHub CLI autenticado
+permitió leer issue y PR activos. Solo PR abierto #7 HU-03, base=base, 26 archivos.
+Se advirtió el solapamiento documental/dependencias/infra de pruebas y la semántica
+de CONFIRMED/CANCELLED en sus consultas. Su rama avanzó de c2dd659 a e62ba25 y se
+volvió a actualizar la referencia. No se modificaron sus módulos ni su rama.
+
+Tras aprobación: rama `feat/hu-01-reserva-recurrente` desde origin/base e899442.
+No se sobrescribieron cambios ajenos ni se editó base. No se hizo push a base,
+merge ni force push.
+Se consultó documentación oficial Stripe para PaymentIntent, captura manual,
+idempotencia, webhooks, reembolsos, pruebas y disponibilidad comercial. La propuesta
+se presentó antes de escribir código. La elegibilidad comercial de una entidad
+panameña no se da por resuelta al implementar sandbox.
+
+Decisiones implementadas: tabla aditiva V3 checkouts con UUID e importes USD en
+centavos; Payment heredado intacto. Retención 10 min, bloqueo compartido de fila
+de habitación y consulta de disponibilidad que incluye retenciones; estados
+intermedios fuera de reservations para preservar HU-03. Autorización y captura
+manual, confirmación únicamente al verificar succeeded. Transacciones cortas sin
+llamadas al proveedor, claves por operación, recuperación persistente de captura
+incierta y reembolso. Expiración/rechazo libera retención; FINALIZING se conserva
+ante incertidumbre para no sobrevender. Cobro tardío sin derecho a inventario se
+reembolsa sin reserva. Cancelación pagada persiste reserva CANCELLED y solicitud
+de reembolso juntas; fallo/pendencia de devolución se informa por separado.
+
+Feature flag apagado preserva el flujo histórico sin interpretar CONFIRMED como
+pagado; encendido bloquea el endpoint antiguo para impedir bypass del checkout.
+Solo claves test y respuestas livemode=false. Stripe.js diferido con Payment
+Element; sin guardar tarjeta/Customer/SetupIntent, PAN/CVV, cuerpos del proveedor
+ni secretos en logs/Git. Sesión y CSRF intactos salvo el POST webhook específico,
+que usa firma del SDK sobre cuerpo original. Consultas/acciones solo del dueño.
+Documentación detallada y demostración: docs/HU01_CHECKOUT_INICIAL.md.
+
+Dependencias fijadas: stripe-java 34.0.0 y @stripe/stripe-js 10.2.0. El intento de
+npm dentro del sandbox no progresó; se canceló y se instaló con permiso de red.
+Build frontend inicial bloqueado por permisos de lectura de Vite; repetido con
+permiso: TypeScript/build/lint correctos. Compilación backend y pruebas correcta.
+Pruebas unitarias reales en contenedor sin red: StripeWebhookTests **3/3**, cero
+fallos/errores/omitidas (firma válida, alteración/antigüedad/modo live y claves).
+
+La validación aislada completa está en ejecución; Docker estaba detenido y se
+inició sin arrancar ni modificar servicios de desarrollo. La primera construcción
+descarga imágenes/dependencias. JUnit de checkout utiliza un DOBLE explícito del
+proveedor; E2E de checkout utiliza respuestas visuales interceptadas. Ninguno se
+presenta como pago sandbox efectuado. La demostración contra Stripe requiere
+claves privadas y listener y permanece pendiente hasta disponer de evidencia real.
+
+Primera ejecución completa `.local/isolated/20261026-194456/`: migraciones,
+adopción, preservación, arranque y barreras de aislamiento correctas. Frontend
+TypeScript/lint/build correctos. 19/19 pruebas de checkout y 3/3 firmas correctas;
+regresión total 44 Java, un fallo: SystemIntegrationTests aún esperaba dos
+migraciones. Se reemplazó por comprobación exacta de versiones 1/2/3, sin retirar
+validaciones. Se añadió además verificación de amount_received contra el importe
+total y una prueba de captura parcial que no puede confirmar la reserva.
+Una reconstrucción falló por PKIX de Maven Central; el reintento pasó manteniendo
+TLS. El reset aislado verificó etiqueta/red/tmpfs y retiró solo PostgreSQL temporal.
+
+Revisión remota 27/10: origin/base avanzó a 9bd8d2e (PR #7 integrado), con once
+commits nuevos y V3__tracked_demonstration_history.sql. El PR activo #9 HU-05 usa
+V4__reservation_notifications.sql y añade avisos al confirmar/cancelar reservas.
+Nuestra V3 de checkout colisiona con V3 integrada y requiere coordinación con V4
+pendiente. Además, la confirmación posterior al cobro debe coordinarse con el
+aviso HU-05 dentro de la transacción, nunca al iniciar el checkout.
+
+Se informó el conflicto y se pidió decisión entre priorizar la integración humana
+de HU-05 y usar V5 después, o priorizar checkout con V4 y coordinar la renumeración
+de HU-05. No se renumeró ninguna migración ni se resolvieron contenidos por
+suposición; tampoco se integró ni se publicó la rama. La repetición aislada
+`.local/isolated/20261027-182135/` valida únicamente el checkout sobre su punto
+de partida e899442; no equivale a validar integración con origin/base 9bd8d2e.
+
+La lectura de DemandHistoryBatchService en la base nueva confirmó otra dependencia:
+su guardián de reversión rechaza FKs desconocidas hacia reservations/users.
+Checkouts añade ambas. Se pidió autorización específica para reconocerlas y
+rechazar lotes/usuarios con checkouts dependientes, con pruebas, sin modificar
+fórmula, gráficos ni datos HU-03. No se alteró ese guardián mientras se espera
+decisión: la exclusión de HU-03 indicada por Eric impide asumir esa excepción.
+
+### Ampliación expresa a HU-01 completa — 27/10/2026
+
+Eric pidió dejar sin efecto la división en primera/segunda entrega e implementar
+el checkout completo para finalizar HU-01. Se recuperó su rama y el stash con
+`apply --index`, conservando el stash de respaldo. No había cambios ajenos.
+Origin/base continúa en 9bd8d2e y PR #9 continúa abierto. La autorización amplía
+el alcance funcional, pero no elimina la instrucción de consultar decisiones
+entre historias. Se pidió coordinación V5 dependiente de V4/#9 y adaptación mínima
+del guardián, o priorización de V4 checkout con renumeración coordinada de HU-05.
+No se aplicó ninguna alternativa mientras falta esa respuesta.
+
+Implementado: consentimiento inicial desmarcado, versión hu01-on-session-v1 y
+timestamp; Customer idempotente por perfil privado y setup_future_usage=on_session.
+Sin casilla no se crea Customer ni referencia guardada. El método local se activa
+en la transacción que confirma la reserva después de cobro completo verificado.
+Solo se guardan referencia, marca, últimos cuatro dígitos y vencimiento, no PAN/CVV.
+La nueva compra elige UUID local autorizado; se comprueban propietario y estado
+local/proveedor y se confirma mediante Stripe.js sin rellenar otra vez la tarjeta,
+con 3DS si procede. El usuario puede elegir tarjeta nueva si no tiene método o falla.
+Retirada persistida primero, impidiendo nuevas compras aunque falle desvinculación;
+el worker reintenta. No cancela operaciones previamente iniciadas.
+
+Se añadieron tablas payment_profiles/saved_payment_methods y columnas de
+consentimiento/método en la migración privada de checkout aún no publicada; su
+numeración definitiva depende de la coordinación pendiente. No se cambió una
+migración integrada ni se aplicaron migraciones a desarrollo. Las nuevas FK también
+deben contemplarse en la adaptación mínima del guardián HU-03 si se autoriza.
+
+Compilación del backend y pruebas y TypeScript/build/lint frontend correctos en
+la ampliación inicial. La ejecución `.local/isolated/20261027-184756/` verifica
+el alcance completo sobre el punto de partida original; no acredita integración
+con la base nueva. Se ampliaron pruebas con/sin consentimiento, propietario,
+método ausente/retirado/vencido, revocación con Stripe caído y CSRF, fallo y
+concurrencia recurrentes. E2E nuevos prueban consentimiento y selección con un
+doble visual claramente identificado, sin presentarlo como transacción Stripe.
+
+La repetición anterior `.local/isolated/20261027-182135/` pasó backend/frontend y
+falló 2/7 E2E por timeout: primer login y recorrido cliente. Se conservaron trazas;
+la traza del primer login muestra carga inicial Vite y formulario finalmente
+visible. No se ampliaron tiempos, añadieron retries ni desactivaron verificaciones.
+La ejecución actual repite esos recorridos con las fuentes nuevas.
+
+No existen claves Stripe exportadas ni `.env.stripe-test`; tampoco hay conector
+Stripe disponible. Se solicitó configuración privada para la prueba integral.
+Primer pago/compra recurrente/rechazo/3DS/reembolso contra sandbox permanecen sin
+demostración hasta obtener credenciales y evidencia real. No se declara cumplida
+la HU ni se publica un PR como verificado mientras falte integración/pruebas finales.
+
+La ejecución completa `.local/isolated/20261027-184756/` pasó migraciones,
+preservación y arranque: **55 Maven + 1 compatibilidad**, incluidas 30 pruebas de
+checkout inicial/recurrente y tres de firmas. Frontend TypeScript/lint/build pasó.
+Playwright pasó 7/9 y detectó un defecto real en los dos casos nuevos: randomUUID
+no existe en el origen HTTP interno frontend-app. Se corrigió con 128 bits de
+crypto.getRandomValues, sin Math.random, sin cambiar timeouts/retries ni relajar
+aserciones. Las pruebas mostraron consentimiento desmarcado y selección guardada,
+pero impedían iniciar checkout; se conservan errores/trazas de ambos casos.
+
+Se añadió protección de propietario también al desvincular: si el método ahora
+pertenece a otro Customer, no se modifica. Retirada local permanece efectiva y el
+desacoplamiento queda pendiente de revisión/reintento. Un método inexistente en
+Stripe (400/404 al consultar) se trata como fallo definitivo 409 para liberar la
+retención, manteniendo 503 para fallos de disponibilidad. Se añadieron pruebas
+del adaptador sin red. La validación posterior está en
+`.local/isolated/hu01-complete-final/`; frontend ya pasó con la corrección HTTP.
+
+Resultado posterior real: backend **56 Maven + 1 compatibilidad**, cero fallos,
+errores u omitidas, incluidas 30 de checkout y cuatro de adaptador/firmas. Tras
+clasificar el 404 del proveedor se repitieron sus **5 pruebas sin red**, todas
+correctas; esa corrección no cambió esquema, servicios de dominio ni contratos.
+TypeScript/lint/build finales pasaron. Playwright **9/9** (56.2 segundos), sin
+retries/timeouts ampliados: cuatro escenarios HU-01 con doble visual y cinco de
+regresión real contra la aplicación aislada. Se inspeccionó captura del resultado
+recurrente del doble, sin confundir reserva sintética #999 con transacción Stripe.
+Fuentes/logs completos en `.local/isolated/hu01-complete-final/`; reportes y capturas
+en `.local/isolated-artifacts/e2e/hu01-complete-final/`.
+
+Trabajo guardado en commits 6d49ee8 (backend completo) y 18f0f5d (UI/HTTP/E2E),
+ambos refs #5; los tres commits iniciales se conservan. El stash original también
+permanece como respaldo. Fetch posterior confirmó base 9bd8d2e y #9 abierto.
+No se tocó el guardián HU-03 ni se eligió unilateralmente el orden V4/V5; no hay
+push ni PR nuevo mientras esas decisiones requeridas sigan pendientes. No se
+alteró PostgreSQL de desarrollo ni se ejecutaron cobros reales. Validación de
+integración con la base vigente y transacciones Stripe sandbox siguen pendientes,
+a pesar de las comprobaciones locales satisfactorias del checkout completo.

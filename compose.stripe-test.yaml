@@ -1,0 +1,13 @@
+# Opt-in overlay for a HUMAN sandbox demonstration AFTER the isolated suite.
+# Never use with compose.yaml or development PostgreSQL.
+services:
+  backend-app:
+    environment:
+      HOTEL_CHECKOUT_ENABLED: 'true'
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:?Configure una clave publicable sandbox privada}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:?Configure una clave secreta sandbox privada}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?Configure el secreto privado del listener}
+    networks: [isolated, stripe-egress]
+
+networks:
+  stripe-egress: {}
