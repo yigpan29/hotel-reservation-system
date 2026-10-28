@@ -20,7 +20,7 @@ if($config.SPRING_DATASOURCE_URL -ne 'jdbc:postgresql://postgres:5432/hotel-bd' 
 $sql=@'
 BEGIN READ ONLY;
 DO $$ BEGIN
- IF current_database()<>'hotel-bd' OR NOT EXISTS(SELECT 1 FROM flyway_schema_history WHERE version='3' AND success) THEN RAISE EXCEPTION 'hotel-bd with tested V3 is required'; END IF;
+ IF current_database()<>'hotel-bd' OR NOT EXISTS(SELECT 1 FROM flyway_schema_history WHERE version='6' AND script='V6__tracked_demonstration_history.sql' AND success) THEN RAISE EXCEPTION 'hotel-bd with tested V6 history migration is required'; END IF;
 END $$;
 SELECT current_database(),(SELECT count(*) FROM reservations) AS existing_reservations;
 COMMIT;
