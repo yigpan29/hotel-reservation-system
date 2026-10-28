@@ -65,10 +65,10 @@ registran mensajes de excepción del proveedor, claves, payloads ni datos de tar
 
 ## Migración y colaboración
 
-La migración de checkout (numeración final pendiente de coordinación con base)
+La migración de checkout `V5__initial_checkout.sql`, numeración aprobada por Eric,
 añade `checkouts`, `payment_profiles` y `saved_payment_methods`, con UUID,
 referencias únicas, consentimiento versionado y restricciones.
-No cambia V1/V2, filas/secuencias legacy ni `payments.amount` (unidad histórica
+No cambia V1/V2/V3 de base, filas/secuencias legacy ni `payments.amount` (unidad histórica
 no inferida). Nuevos importes en centavos bigint, USD; tarifas legacy enteras
 se convierten por 100, límites 50–99999999 centavos. Tarifa cero no admite checkout.
 Confirmar preserva precio pactado aunque cambie posteriormente la tarifa.
@@ -80,7 +80,16 @@ permanecen en checkouts y no alteran ese contrato. Retenciones sí afectan la
 disponibilidad operativa, pero no representan noches confirmadas para pronósticos.
 Compartidos con #7: README/INICIO-LOCAL, API/AI log, manifests frontend y la
 documentación de pruebas. Conservar adiciones de ambas historias al integrar;
-no tocar módulos de demanda ni resolver conflictos funcionales por suposición.
+Se conserva la funcionalidad de demanda; el único ajuste es su guardián de reversión:
+reconoce las tablas de checkout y rechaza borrar lotes con dependencias de pago.
+Las relaciones desconocidas siguen impidiendo la reversión.
+
+V4 está reservada por HU-05 (PR #9), todavía no integrada. En una instalación
+compartida debe aplicarse V4 antes de V5: no desplegar V5 primero ni activar
+`outOfOrder` para sortear el orden. Las pruebas de esta rama sin HU-05 utilizan
+instalaciones tmpfs limpias con V1/V2/V3/V5; no demuestran la combinación V4/V5.
+La integración posterior con notificaciones debe emitir confirmación únicamente
+tras captura verificada; queda pendiente cuando HU-05 llegue a base.
 
 ## Ejecutar sin credenciales: regresión aislada
 

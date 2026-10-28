@@ -3,9 +3,11 @@
 Aplicación React 18/TypeScript/Vite/Tailwind y Spring Boot 3.3.2/Java 17,
 PostgreSQL 17 y Flyway 10.20.1. Permite registro, sesión, búsqueda, disponibilidad,
 reserva/cancelación y gestión administrativa. Por defecto no procesa pagos.
-HU-01 añade checkout opcional Stripe sandbox, guardado consentido y reutilización
-del método autorizado. Guía: [HU01_CHECKOUT_INICIAL.md](docs/HU01_CHECKOUT_INICIAL.md).
-HU-02 y HU-03 no forman parte de este cambio.
+HU-01 añade checkout opcional Stripe sandbox y reutilización consentida; ver
+[guía HU-01](docs/HU01_CHECKOUT_INICIAL.md). HU-03 está disponible en
+Administración → Previsión de demanda; ver [método y demo](docs/HU03_PREVISION_DEMANDA.md).
+Una base sin ocho semanas de referencia muestra un aviso, no estimaciones fabricadas.
+HU-02 permanece fuera de esta rama.
 
 ## Demostración aislada (opción recomendada para la presentación)
 

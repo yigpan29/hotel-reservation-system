@@ -1,3 +1,6 @@
+# Sesiones y configuración local de Claude Code.
+.claude/
+
 # Configuración privada. Solo se versionan ejemplos sin secretos.
 .env
 .env.*

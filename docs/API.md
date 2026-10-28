@@ -3,6 +3,22 @@
 Base `/api`, JSON. La SPA usa el proxy del mismo origen de Vite. Las respuestas
 nunca exponen entidades JPA ni hashes de contraseñas.
 
+## Demanda administrativa (HU-03)
+
+Solo ADMIN, sesión existente; operaciones GET sin escrituras:
+
+| Método y ruta | Resultado |
+|---|---|
+| GET `/admin/demand/history?hotelId=&startDate=&endDate=` | Estadísticas por estancias, serie diaria y capacidad actual de referencia; fechas inclusivas pasadas, máximo 366 días |
+| GET `/admin/demand/forecast?hotelId=` | Ventana de ocho semanas completas, medias por día semanal y 30 fechas estimadas desde mañana, o INSUFFICIENT_HISTORY sin predicciones |
+
+Hotel opcional (todos por defecto); sus restricciones son las del ADMIN global
+actual. Datos agregados sin identidades. Estimación y reservas futuras confirmadas
+son series distintas; porcentajes de capacidad orientativos, no ocupación real.
+401 anónimo/sesión expirada, 403 USER, 400 parámetros inválidos, 404 hotel inexistente.
+Contrato completo, fórmula y tratamiento de ceros/estados:
+[HU03_PREVISION_DEMANDA.md](HU03_PREVISION_DEMANDA.md).
+
 ## Sesión y CSRF
 
 | Método y ruta | Acceso | Entrada / resultado |
@@ -159,3 +175,13 @@ duplica reembolso. Filas legacy sin checkout no generan devoluciones inventadas.
 Worker recuperable cada 15s y webhooks idempotentes por operación/estado. No se
 acepta un redirect del navegador como prueba de pago. Detalles, credenciales,
 aislamiento y prueba humana: [HU01_CHECKOUT_INICIAL.md](HU01_CHECKOUT_INICIAL.md).
+
+## Procedencia de demanda HU-03 (solo ADMIN)
+
+GET /api/admin/demand/history y /api/admin/demand/forecast conservan sus filtros.
+El contexto incorpora syntheticReservations, operationalReservations y syntheticBatches.
+dataKind distingue OPERATIONAL, SYNTHETIC_DEMO y MIXED según el origen real de las
+reservas del hotel/período consultado. Forecast considera entrenamiento y horizonte
+sin duplicar reservas. No se expone identidad del propietario ni datos personales.
+No existe endpoint HTTP para cargar o revertir lotes. Véase
+[Historial sintético HU-03](HU03_HISTORIAL_SINTETICO.md).

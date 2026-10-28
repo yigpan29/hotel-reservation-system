@@ -517,3 +517,217 @@ push ni PR nuevo mientras esas decisiones requeridas sigan pendientes. No se
 alteró PostgreSQL de desarrollo ni se ejecutaron cobros reales. Validación de
 integración con la base vigente y transacciones Stripe sandbox siguen pendientes,
 a pesar de las comprobaciones locales satisfactorias del checkout completo.
+
+## HU-03 — Previsión de demanda (26/10/2026)
+
+Trabajo autorizado por el alcance actualizado del Issue #1, en
+`feat/hu-03-pronostico-demanda`, desde `e899442` (merge PR #4). `base` no se modifica.
+Las exclusiones de HU-03 de los registros anteriores corresponden a estabilización
+y catálogo: esta entrada registra su implementación independiente, expresamente
+solicitada ahora. HU-01/HU-02 y pagos siguen fuera de alcance.
+
+| Actividad | Herramienta IA | Solicitud y resultado real | Decisión humana |
+|---|---|---|---|
+| Auditoría | Codex, Git, lecturas y PostgreSQL READ ONLY | Rama/origen confirmados; reglas, panel y límites revisados antes de backend | Alcance del Issue #1 autorizado; revisión del informe pendiente |
+| Diseño | Codex | Promedio semanal de ocho semanas completas, Clock Panama, horizonte mañana/hoy+30, umbral mínimo y capacidad orientativa documentados | Método propuesto por el issue; revisión de detalles pendiente |
+| Backend | Codex, Java/Spring | Dos GET ADMIN, SQL agregado, DTOs sin identidades, transacciones readOnly/REPEATABLE_READ | Revisión del código pendiente |
+| Frontend | Codex, React/Recharts | Pestaña existente, indicadores, filtros, curvas interactivas, tablas y mensajes; sin rediseño | Revisión visual humana pendiente |
+| Datos de prueba | Codex, PostgreSQL aislado | Escenario etiquetado sintético: 132 noches, ocho cancelaciones en ventana, lunes 12/8=1.50 | Autorizado solo en aislamiento |
+| Testing | Codex, Maven/JUnit/Playwright | 37 Java, 8 E2E y validaciones frontend satisfactorias; detalles abajo | QA/revisión humana pendiente |
+| Debug | Codex y logs reales | Corregidos accesor ID del fixture, colisión de bean Clock y selector de combo de Playwright | No se deshabilitaron protecciones ni reglas |
+
+### Auditoría y decisiones
+
+Informe completo: [auditoría HU-03](auditorias/HU03_PREVISION_DEMANDA.md).
+La primera consulta no pudo ejecutarse porque Docker estaba apagado. Tras iniciar
+el daemon se completó READ ONLY: V1 BASELINE/V2 SQL success, 13 hoteles, 72
+habitaciones activas y una reserva CONFIRMED con entrada 26/10, salida 27/10 y
+creación 25/10. No se consultaron identidades. No existe historial suficiente de
+ocho semanas: la UI debe informar insuficiencia, no fabricar predicciones.
+
+Se reutilizaron sesiones, CSRF, `/api/admin/**`, panel, entidades e índices de V2.
+No se modificaron reglas de reservas ni seguridad, no se añadieron tablas o
+migraciones. Las consultas usan estancias (no creación), salida exclusiva,
+CONFIRMED y habitaciones distintas por día. Cancelaciones actuales se excluyen;
+datos inválidos, estados desconocidos y duplicaciones legacy se informan.
+
+El historial de capacidad y la ocupación efectiva no existen: los porcentajes
+son referencias expresamente orientativas con capacidad activa actual. Capacidad
+cero o demanda superior a referencia no produce una ocupación falsa ni recortes
+del conteo. No se generan recomendaciones o cambios automáticos de tarifas.
+
+Modelo: ocho lunes-domingos completos antes de la semana actual, 56 observaciones;
+sumar por día semanal y dividir entre ocho incluyendo ceros. HALF_UP a dos
+decimales, sin convertir medias en reservas. Requiere una estancia conocida que
+alcance el inicio y alguna noche confirmada en ventana; es un umbral mínimo, no
+garantía de cobertura ni de confianza estadística. Las limitaciones se devuelven
+en API y se muestran en UI. Guía: [HU03_PREVISION_DEMANDA](HU03_PREVISION_DEMANDA.md).
+
+Recharts 3.10.1 y react-is 18.3.1 se comprobaron contra npm y documentación oficial,
+sin cambiar React/Boot ni instalar herramientas globales. Carga diferida: build
+principal ~195 kB; chunk del módulo ~390 kB (~114 kB gzip), descargado al abrir
+la pestaña. No se incorpora otro framework ni una fórmula alternativa en React.
+
+### Pruebas realmente ejecutadas
+
+Ejecución final limpia:
+`powershell -NoProfile -ExecutionPolicy Bypass -File tests/isolated/run.ps1`.
+Directorio `.local/isolated/20261026-182410/`, proceso exit 0.
+
+| Comprobación | Resultado |
+|---|---|
+| Maven clean verify | 36 pruebas, 0 fallos/errores/omitidas |
+| Compatibilidad Flyway adicional | 1 prueba correcta; total Java 37 |
+| Unitarias HU-03 | 5 métodos: ventanas, medias, ceros, 30 días, determinismo, capacidad y validación |
+| Integración HU-03 | 9 métodos sobre PostgreSQL: noches, checkout, estados, filtros, parámetros, permisos, datos legacy y snapshots de las seis tablas |
+| TypeScript / ESLint / build | Todos exit 0, sin relajar configuración |
+| Esquema limpio, adopción y preservación | Correctos, V1/V2 sin cambios |
+| Protecciones negativas de aislamiento | Sin baseline rechazado (1); URLs de desarrollo rechazadas (64), mensajes verificados |
+| Chromium | 8 pruebas correctas: 3 HU-03 y 5 de regresión completa |
+
+La matemática por estancias se verifica donde se ejecuta realmente, en las consultas
+PostgreSQL; las funciones puras verifican medias/fechas/decimales. La regresión
+incluye registro/login/logout, CSRF, roles, catálogo, inventario, reservas, cancelación
+y dos solicitudes concurrentes (201/409). No se presenta compilar como prueba funcional.
+
+El escenario exclusivo del harness exige hotel_test y usuario hotel_test, y el
+backend declara SYNTHETIC_DEMO. No se inserta historial en hotel-bd. El hotel
+`HU03 · Historial sintético` tiene cuatro habitaciones; 132 noches/56 =2.36,
+referencia 132/(56×4)=58.93%, lunes 12/8=1.50. Las cancelaciones no elevan demanda.
+Los E2E comprueban tooltip, 30 filas, filtros, períodos vacíos, insuficiencia,
+sesión expirada, fallo HTTP, USER, ausencia de errores de ejecución y móvil sin
+desbordamiento. Se revisaron visualmente gráficos naranja/azul y sus capturas.
+
+Capturas: `.local/isolated-artifacts/e2e/20261026-182410/test-results/`:
+`hu03-historical-chart.png`, `hu03-forecast-chart.png`, `hu03-forecast-desktop.png`,
+`hu03-empty-period.png`, `hu03-insufficient.png`, `hu03-mobile.png`.
+JUnit y HTML/trazas permanecen bajo `.local/isolated-artifacts/`, incluidos por CI
+como artifacts; no se publican datos personales ni respaldos de desarrollo.
+
+Se completó además la cobertura explícita de fallos de red: mensaje en español
+para fetch fallido, y prueba de fechas invertidas desde el formulario. La versión
+final del frontend se reconstruyó y pasó TypeScript, lint, build y nuevamente
+8/8 E2E: `.local/hu03-network-frontend-checks.log`, `.local/hu03-network-final.log`,
+reportes `.local/isolated-artifacts/e2e/hu03-network-final/`. El backend no cambió
+respecto a la ejecución limpia integral de 37 pruebas Java mencionada arriba.
+
+### Fallos conservados y corregidos
+
+- `.local/isolated/20261026-174803/`: compilación del fixture usaba id() sobre User;
+  se corrigió a getId(), sin cambiar el modelo ni la autenticación.
+- `.local/isolated/20261026-175143/`: arranque limpio falló por nombre demandClock
+  compartido por configuración/bean. Se renombró el bean a forecastClock; no se
+  habilitó sobrescritura de beans.
+- `.local/isolated/20261026-180747/`: 37 Java pasaron, pero un E2E no encontraba el
+  label exacto del select. Se usó el rol combobox con nombre accesible. Se conservaron
+  screenshot/trace del fallo; luego pasaron 8/8 en `hu03-locators-current` y desde
+  cero en la ejecución final. Sin aumentar retries, tiempos ni ocultar errores.
+
+### Activación de desarrollo y límites de la comprobación
+
+Tras las validaciones se recreó solo backend con HOTEL_MIGRATIONS_ENABLED=false
+para compilar/cargar HU-03. La primera sonda expiró durante Maven sobre el montaje
+Windows; los logs posteriores confirmaron arranque correcto y readiness 200. No
+se trató como una validación satisfactoria hasta comprobar las respuestas reales.
+No se repitió la recreación: no hacía falta modificar código ni datos.
+
+Evidencias `.local/hu03-development-activation.log` (sonda vencida) y
+`.local/hu03-development-http.log` (verificación posterior): health directo/proxy,
+catálogo y módulo React 200; ambos GET administrativos 401 sin sesión. Persisten
+13 hoteles, 72 habitaciones, una reserva y V1/V2. PostgreSQL/frontend no se
+recrearon; sus reinicios siguen en cero. La recuperación inicial de Docker inició
+los servicios por sus políticas existentes. No se cargaron reservas sintéticas,
+no se migró ni se alteró inventario de desarrollo. No se afirma una comparación
+completa de fingerprints de la primera activación: esa sonda venció antes de
+compararlos. Los snapshots que demuestran ausencia de escrituras en consultas
+HU-03 sí se ejecutaron satisfactoriamente en integración PostgreSQL aislada.
+
+No se usó una cuenta personal para automatización autenticada en desarrollo.
+La vista ADMIN completa se verificó en la instancia aislada. Tras recrear backend
+hay que volver a iniciar sesión en desarrollo, porque sus sesiones eran en memoria.
+`demo-admin` de desarrollo continúa pendiente por decisión anterior del operador;
+el usuario homónimo del harness es efímero y no lo sustituye.
+
+La CI existente ejecuta el mismo harness en PR hacia base; no necesita cambios
+para incluir las nuevas pruebas. El resultado remoto vigente se enlaza desde el
+PR del Issue #1. No se declara revisión/aprobación humana ni merge; esos pasos
+de la Definition of Done siguen pendientes del equipo.
+
+### Cierre de QA visual y primera CI remota HU-03
+
+La ejecución remota [40424992003](https://github.com/yigpan29/hotel-reservation-system/actions/runs/40424992003)
+del commit `c2dd659` pasó frontend e integración, con 37 Java y 8 E2E. PR abierto:
+[#7](https://github.com/yigpan29/hotel-reservation-system/pull/7), referencia Issue #1.
+No implica revisión humana, aprobación ni merge.
+
+La revisión final añadió una comprobación visual de un período válido de un día:
+se muestra su punto, en lugar de una línea sin segmento visible. No cambió ningún
+cálculo ni endpoint. TypeScript/lint/build y 8/8 E2E volvieron a pasar en
+`.local/hu03-single-day-frontend.log` y `.local/hu03-single-day-final.log`; captura
+`hu03-single-day.png` bajo `.local/isolated-artifacts/e2e/hu03-single-day-final/`.
+El último ajuste y esta evidencia se publican para sus checks completos de CI;
+el resultado vigente figura en el PR #7.
+
+## 2026-10-27 — Historial sintético autorizado de HU-03
+
+Se continuó en `feat/hu-03-pronostico-demanda`, sobre `e62ba25`, con trabajo
+inicial limpio. Revisión enfocada de DemandService/Repository/Math, estados,
+esquema, Flyway y reloj Panamá: 13 hoteles, 72 habitaciones y una reserva reciente,
+sin actividad en las ocho semanas de entrenamiento. La fórmula no tenía un defecto
+y permanece intacta. No se repitió la auditoría histórica.
+
+| Actividad | Herramienta | Solicitud y resultado real | Decisión humana |
+|---|---|---|---|
+| Diagnóstico | Codex | Confirmar falta de histórico y fechas completas de referencia | El operador solicitó conservar la fórmula |
+| Diseño/carga | Codex | Generador transaccional, semilla 73003, seguimiento explícito V3, idempotencia y reversión segura | El prompt autorizó inserciones sintéticas y migración aditiva necesaria tras respaldo/prueba aislada |
+| Respaldo | Codex + PostgreSQL | Archivo custom privado, SHA-256, restauración aislada y comparación por fila; V3 preserva las seis tablas originales | Autorizado expresamente; sin publicar respaldo ni datos personales |
+| Desarrollo | Codex | Lote hu03-panama-history-v1: 936 reservas, 854 CONFIRMED/82 CANCELLED, 2779 noches, doce hoteles, 2026-08-03 a 2026-10-25 | Carga solicitada y autorizada en hotel-bd; cuenta técnica nueva USER |
+| Repetición | Codex | Mismo lote devuelve reused=true, mismas cantidades y ninguna fila original cambiada | Solicitada como criterio de aceptación |
+| Procedencia | Codex | Backend deriva SYNTHETIC_DEMO/MIXED/OPERATIONAL por relaciones reales y filtros; panel muestra origen y lote | Requisito explícito del operador |
+| Pruebas | Codex + JUnit/PostgreSQL/Playwright | 42 Java + 1 compatibilidad, 8 E2E, TypeScript/lint/build; todas satisfactorias | No equivale a revisión humana del código |
+| Navegador real | Codex + Chromium | Login/recarga, gráficos, 30 estimaciones, promedios, 13 filtros, móvil, logout y 401 posterior; sin 500/CSRF/JS | Operador autorizó ADMIN sintético temporal y su retirada, sin usar su cuenta personal |
+| Limpieza QA | Codex + PostgreSQL | Tras logout se verificó identidad/huella/dependencias y se eliminó únicamente el ADMIN temporal; propietario USER del lote permanece | Retirada explícitamente autorizada; ninguna cuenta existente cambió |
+| Corrección Docker | Codex | Archivo actualizado pero Vite servía el módulo anterior; sondeo Chokidar 1000 ms y recreación solo frontend resolvieron la caché | Dentro de la corrección necesaria para mostrar procedencia real |
+
+La referencia efectiva fue 2026-10-27: entrenamiento 2026-08-31 a 2026-10-25,
+horizonte 2026-10-28 a 2026-11-26. Ventana: 628 reservas (577 confirmadas/51
+canceladas), 1826 noches. Viernes: 521/8=65.13 noches, 90.46% de capacidad actual;
+miércoles: 75/8=9.38. Cero solapamientos confirmados, precios/fechas/cronología
+inválidos y filas del lote modificadas. El máximo diario sintético fue 71/72.
+Doce hoteles generan previsión; el hotel existente sin habitaciones continúa
+informando insuficiencia. Se conservó la reserva operativa, sin mezclarla
+silenciosamente con el historial etiquetado.
+
+Se corrigieron dos aserciones iniciales (versión de Flyway 3 y canceladas que
+pueden solaparse) y se repitió el harness completo. La prueba privada de navegador
+ajustó su selector para excluir SVG de leyendas y confirmó que la falta inicial
+del aviso nuevo era caché de Vite. No se desactivaron reglas ni seguridad.
+
+Evidencias, comandos, tablas por día, límites y reversión exclusiva en
+[HU03_HISTORIAL_SINTETICO.md](HU03_HISTORIAL_SINTETICO.md). Capturas versionadas
+contienen solamente gráficos agregados; respaldos, identidad temporal y credenciales
+quedan ignorados bajo .local. La contraseña temporal se retiró del archivo privado
+después de eliminar la cuenta. No se ejecutó reversión sobre desarrollo.
+
+Backend se recreó con Flyway automático desactivado tras aplicar únicamente V3;
+PostgreSQL no se reinició ni se eliminó su volumen. No se modificaron V1/V2,
+usuarios preexistentes, HU-01, HU-02, pagos, precios ni la rama base.
+PR #7 permanece destinado a base; la revisión humana, aprobación y merge
+corresponden al equipo. No se inventan aprobaciones ni se realiza merge automático.
+
+## HU-01: actualización a base aprobada por Eric (28/10/2026)
+
+Eric autorizó integrar origin/base 9bd8d2e únicamente dentro de la rama HU-01,
+sin fusionar el PR #13 ni escribir en base, y reservar V5 coordinada con HU-05/V4.
+Se conservaron las secciones de ambas historias en README, inicio local, contrato
+API, AI log y pruebas. El lockfile conserva Stripe y las dependencias de Recharts.
+V3 de HU-03 permanece intacta; la migración inédita de checkout se renombró a V5.
+Las aserciones Flyway verifican exactamente V1/V2/V3/V5 en esta rama aislada.
+
+Se adapta mínimamente el guardián de reversión HU-03: las tablas de pago se
+reconocen, pero sus filas dependientes bloquean borrar el lote; otras relaciones
+desconocidas siguen requiriendo revisión. Se añadieron pruebas de ambos casos.
+HU-05 sigue fuera de base: no se aplica V5 a entornos compartidos antes de V4,
+no se activa outOfOrder y la notificación posterior a captura queda pendiente.
+Validaciones de esta actualización: pendientes de ejecución; no se heredan como
+evidencia los conteos de la versión anterior ni se declaran pagos reales probados.

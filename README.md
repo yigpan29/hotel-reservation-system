@@ -42,7 +42,10 @@ y por ejecución manual, con reportes como artifacts. No despliega a producción
 
 ## Exclusiones
 
-HU-02 (calendario interactivo avanzado)
-y HU-03 (pronósticos/gráficos de demanda) permanecen fuera de esta rama.
+HU-02 (calendario interactivo avanzado) permanece fuera de esta rama.
+HU-01 incorpora checkout opcional Stripe sandbox y reutilización consentida.
+HU-03 incorpora la pestaña administrativa **Previsión de demanda**, con histórico,
+promedio semanal de ocho semanas, gráficos y horizonte de 30 días. Es informativa
+y no modifica precios/inventario. [Método y demo](docs/HU03_PREVISION_DEMANDA.md).
 El histórico básico de reservas se conserva para el funcionamiento del sistema;
-no implementa esas historias individuales.
+La integración con HU-05 y las historias de main requiere revisión coordinada.

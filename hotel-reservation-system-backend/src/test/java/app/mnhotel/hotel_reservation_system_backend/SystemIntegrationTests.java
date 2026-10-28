@@ -163,7 +163,8 @@ class SystemIntegrationTests {
         assertThatThrownBy(()->jdbc.update("insert into rooms(hotel_id,room_number,price_per_night) values(?, 'BAD', -1)",hotelId)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
         assertThatThrownBy(()->jdbc.update("insert into rooms(hotel_id,room_number) values(99999,'BAD')")).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",String.class))
-            .containsExactly("1","2","3");
+            .containsExactly("1","2","3","5");
+
     }
     @Test void pastReservationsCannotBeCancelledAndRemainStored() throws Exception {
         jdbc.update("insert into reservations(room_id,user_id,start_date,end_date,status,created_at,nightly_price,total_price) values(?,?,?,?, 'CONFIRMED',now(),80,80)",roomId,auth.require("owner").getId(),RoomServiceImp.today().minusDays(2).atStartOfDay(),RoomServiceImp.today().minusDays(1).atStartOfDay());
