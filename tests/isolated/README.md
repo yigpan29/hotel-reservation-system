@@ -34,7 +34,17 @@ No elimina archivos, volúmenes de desarrollo ni utiliza limpieza global.
    módulo PostgreSQL, validación y Security; no se inyecta un POM alternativo.
 7. TypeScript, ESLint y build de producción en la copia frontend.
 8. Iniciar una demo vacía con perfil explícito y datos sintéticos; esperar readiness.
-9. Playwright: cliente completo, administración de inventario y vista móvil.
+9. Cargar exclusivamente en hotel_test el escenario histórico HU-03: 132 noches
+   confirmadas, ocho cancelaciones en ventana, lunes 12/8=1.50; backend marcado
+   SYNTHETIC_DEMO. El SQL rechaza hotel-bd y no pertenece al arranque normal.
+10. Playwright: regresión de cliente/administración/móvil y HU-03 (gráficos,
+    matemáticas, filtros, insuficiencia, permisos, errores y sesión expirada).
+
+HU-03 añade pruebas puras del cálculo y consultas de PostgreSQL con reloj fijo.
+Se comprueban noches con salida exclusiva, cancelaciones, capacidad, datos legacy
+y snapshots de tablas antes/después de consultas. La interfaz ofrece tablas además
+de gráficos Recharts. Guía y resultados esperados:
+[HU03_PREVISION_DEMANDA.md](../../docs/HU03_PREVISION_DEMANDA.md).
 
 `-SkipBuild` solo reutiliza imágenes que ya reflejan las fuentes actuales.
 `-SkipE2E` omite demo/navegador, manteniendo DB/JUnit/frontend.
@@ -79,3 +89,12 @@ La adopción posterior de desarrollo, autorizada expresamente tras el diagnósti
 web, se documenta en [AI Development Log](../../docs/AI_DEVELOPMENT_LOG.md).
 La auditoría histórica permanece intacta. Los respaldos privados de esa operación
 no pertenecen a los artifacts del harness ni se publican en GitHub.
+
+## Seguimiento de historial HU-03 (V3)
+
+El harness también valida V3 en instalación limpia y adopción legacy, y ejecuta
+DemandHistoryBatchTests: seis pruebas de idempotencia, determinismo, intervalos,
+procedencia por filtros, rollback y reversión exclusiva con dependencias.
+Estas pruebas permanecen restringidas a hotel_test; no generan datos en desarrollo.
+El procedimiento explícito y separado de desarrollo se documenta en
+[Historial sintético HU-03](../../docs/HU03_HISTORIAL_SINTETICO.md).

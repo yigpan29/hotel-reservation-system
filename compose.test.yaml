@@ -97,6 +97,7 @@ services:
       HOTEL_DEMO_USER_USERNAME: demo-user
       HOTEL_DEMO_USER_EMAIL: demo-user@example.invalid
       HOTEL_DEMO_USER_PASSWORD: Synthetic-user-123
+      HOTEL_DEMAND_DATA_KIND: SYNTHETIC_DEMO
     networks: [isolated]
     depends_on:
       postgres-test: {condition: service_healthy}
