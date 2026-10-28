@@ -1,0 +1,49 @@
+{
+  "executed_at_utc": "2026-10-28T18:45:03.690981+00:00",
+  "mode": "real_stripe_sandbox_group",
+  "status": "passed",
+  "results": [
+    {
+      "case": "one_payment_two_rooms_idempotency_and_real_webhook_confirmation",
+      "passed": true
+    },
+    {
+      "case": "group_checkout_explicit_consent_and_saved_method",
+      "passed": true
+    },
+    {
+      "case": "recurrent_group_checkout_without_new_card",
+      "passed": true
+    },
+    {
+      "case": "partial_refund_exact_amount_keeps_other_room_and_is_idempotent",
+      "passed": true
+    },
+    {
+      "case": "remaining_room_refunded_without_exceeding_single_payment",
+      "passed": true
+    },
+    {
+      "case": "declined_group_payment_releases_all_rooms",
+      "passed": true
+    },
+    {
+      "case": "3ds_requires_action_without_partial_confirmation",
+      "passed": true
+    },
+    {
+      "case": "all_three_test_payments_fully_refunded_per_room",
+      "passed": true
+    },
+    {
+      "case": "saved_method_revocation",
+      "passed": true
+    }
+  ],
+  "cleanup_errors": 0,
+  "limitations": [
+    "3DS challenge completion is not verified.",
+    "Card confirmation uses official test PaymentMethod tokens by API; Stripe.js browser completion is not asserted.",
+    "Real webhook confirmation requires the isolated demo recovery worker to be disabled for this test."
+  ]
+}

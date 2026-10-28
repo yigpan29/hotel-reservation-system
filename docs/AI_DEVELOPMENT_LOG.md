@@ -958,3 +958,30 @@ ReservationList, ReservationSummaryModal y estilos. Main no había avanzado al
 consultarlo; se volverá a consultar antes de publicar. Preparar PR único en
 borrador a main, refs #5/#6; no cerrar #13/#14 sin coordinación. Eric mantiene
 aprobación y fusión humanas, sin auto-merge, ready, force push ni push a main/base.
+
+
+### Revisión final y repetición tras ajustes acotados
+
+La inspección final restringió el matcher CSRF expresamente a POST del webhook;
+PUT/DELETE sin token quedan rechazados y se agregaron aserciones al caso de
+permisos existente. En otra base hotel_test tmpfs, backend completo pasó de nuevo:
+110 JUnit + una compatibilidad, sin fallos ni errores. El texto del checkout
+aclara devolución completa del importe de la habitación, conservando las demás;
+frontend volvió a pasar 117 Vitest, TypeScript, lint y build. Los cuatro E2E de
+checkout con contrato interceptado también pasaron de nuevo (20,5 s).
+La suite conjunta previa de 15 navegador se conserva como tal, sin sumar las
+repeticiones como casos distintos. No hubo otros cambios de lógica de pagos.
+
+Se verificó por comparación que los contenidos informativos de ambos AI logs
+están preservados. Diff completo y staged sin errores de whitespace, sin
+marcadores ni secretos reales aparentes. Main sigue en fc74de3 y PR #9/#17
+siguen abiertos antes de publicar. La rama original HU-04 quedó limpia.
+Commit de merge autorizado: f49a5f6 (padres b7810ef y 4f82336), refs #5/#6.
+Las pruebas y evidencia se separan de la aprobación humana y de la fusión.
+
+El reconciliador de la nueva demo se restauró a 15000 ms y backend/frontend
+se actualizaron con imágenes finales, conservando datos sintéticos. Demos
+anteriores y listener original intactos. Se retiró solamente el proyecto
+hotel-reservation-system-eric-security-test usado para la repetición, no las
+demos. La demo combinada permanece en http://127.0.0.1:55177 con su propio
+listener sandbox; claves y logs privados bajo .local, fuera de Git.

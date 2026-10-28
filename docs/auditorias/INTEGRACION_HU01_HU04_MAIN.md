@@ -1,7 +1,37 @@
 # Propuesta de integración HU-01/HU-04 sobre main
 
 Fecha: 28/10/2026, America/Panama. Responsable de HU-01 y HU-04: Eric.
-Estado: diagnóstico para revisión del equipo; no autorizado para reparar bases.
+Estado actual: integración implementada y verificada sobre `fc74de3` (PR #16
+fusionado por humano). Este documento conserva abajo el diagnóstico histórico
+de `7c892ea`; sus bloqueos ya resueltos no describen el main actual.
+No hay autorización para reparar bases de desarrollo.
+
+## Resultado actual (28/10/2026)
+
+- Capacidad V3, huéspedes V4, tipo V5 e historial V6 conservados sin modificar SQL.
+- Checkout V8 con pedidos/líneas, un pago por grupo, confirmación conjunta,
+  snapshots por habitación, métodos autorizados y devoluciones parciales.
+- Calendario, huéspedes, demanda y constancias PDF formales conservados.
+- Conflictos resueltos con aprobación expresa de Eric: conservar ambas historias,
+  dependencias, seguridad combinada y ambos bloques completos del AI log.
+- Validación aislada: 110 JUnit + una compatibilidad, 117 Vitest,
+  TypeScript/lint/build y 15 Playwright correctos; instalación/adopción y esquema
+  completo V1–V6/V8 con datos y secuencias preservados.
+- Nueve escenarios API contra Stripe sandbox pasaron, incluido webhook real que
+  capturó sin sync tras autorizar y con worker demorado. Tres pagos test totalmente
+  reembolsados por habitación; limpieza sin errores. Pendientes Stripe.js/3DS
+  interactivo. Los E2E interceptados y JUnit con dobles no son evidencia Stripe.
+- PR #9 HU-05 sigue fuera de main: reservar V7 exige coordinación con Yoel;
+  no desplegar V8 a una base compartida antes de coordinar V7. No se implementan
+  ni se afirman probadas sus notificaciones. Bases con V3 histórico requieren
+  adopción revisada aparte; no se ejecutó repair.
+- PR #17 de diseño está abierto y modifica archivos compartidos: App.tsx,
+  RoomDetails, MyReservations, ReservationList, ReservationSummaryModal y estilos.
+  No se incorporó su rama sin fusionar. Volver a comparar antes de fusionar el PR.
+- Demos anteriores y sus datos conservados; nueva demo combinada en 127.0.0.1:55177.
+  Ningún push a main/base ni merge de PR realizado por el agente.
+
+## Diagnóstico histórico (conservado)
 
 ## Referencias comprobadas
 
@@ -139,8 +169,8 @@ histórico de main 7c892ea; desaparece en las ramas que incluyen esta correcció
 
 Las bases existentes con V3 de historial todavía requieren adopción revisada:
 el cambio de nombre no transforma sus registros automáticamente. No se ha
-modificado ninguna base de desarrollo ni se ha ejecutado repair. V4 de HU-05 y
-V5 de checkout siguen pendientes de coordinar; no se renumeraron aquí.
+modificado ninguna base de desarrollo ni se ha ejecutado repair. En ese momento V4 de HU-05 y V5 de checkout estaban pendientes; el resultado
+actual usa V8 para checkout y reserva V7 para HU-05, sin cambiar la rama de Yoel.
 
 La ejecución completa de pruebas de la corrección se registra en su AI log y
 PR independiente. No se declara por ello implementado el checkout múltiple ni
