@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useParams, useSearchParams, useLocation } from 'react-router-dom'
-import { api, message } from '../api'
+import { Link, useParams, useSearchParams, useLocation, useNavigate } from 'react-router-dom'
+import { api, message, idempotencyKey } from '../api'
+import PaymentOptions, { type PaymentChoice } from '../components/PaymentOptions'
 import DateRangeModal from '../components/DateRangeModal'
 import RoomGroup from '../components/RoomGroup'
 import ReservationSummaryModal from '../components/ReservationSummaryModal'
@@ -35,6 +36,18 @@ const validationAdvice = (problem: string) => {
 
 export default function RoomDetails() {
   const [params, setParams] = useSearchParams(), path = useParams(), location = useLocation(), { user } = useAuth()
+  const navigate = useNavigate()
+  const userId = user?.id
+  const [checkoutConfig, setCheckoutConfig] = useState<{ enabled: boolean } | null>(null)
+  const [checkoutError, setCheckoutError] = useState('')
+  const [paymentChoice, setPaymentChoice] = useState<PaymentChoice>({ paymentMethodId: null, saveMethod: false })
+  const checkoutRequest = useRef<{ fingerprint: string; key: string } | null>(null)
+  useEffect(() => {
+    let active = true
+    setCheckoutConfig(null); setCheckoutError(''); setPaymentChoice({ paymentMethodId: null, saveMethod: false }); checkoutRequest.current = null
+    if (userId) void api<{ enabled: boolean }>('/checkouts/config').then(config => { if (active) setCheckoutConfig(config) }).catch(error => { if (active) setCheckoutError(message(error)) })
+    return () => { active = false }
+  }, [userId])
   const id = path.id || params.get('id') || ''
   const [stay, setStay] = useState<Stay | null>(() => readStay(params)), [picking, setPicking] = useState(false)
   const [booked, setBooked] = useState<Group[]>(() => readRooms(params.get('rooms')))
@@ -82,6 +95,14 @@ export default function RoomDetails() {
       setPlan({ query, data: fresh })
       const gone = selectionIssue(fresh.types, booked)
       if (gone) { setSummaryError(gone + ' Vuelve y elige de nuevo.'); return }
+      if (!checkoutConfig) throw new Error(checkoutError || 'No se pudo verificar la configuración de pago. Vuelve a cargar la página.')
+      if (checkoutConfig.enabled) {
+        const body = { hotelId: Number(id), rooms: booked.map(room => ({ type: room.type, adults: room.adults, children: room.children })), startDate: stay.start, endDate: stay.end, ...paymentChoice }
+        const fingerprint = JSON.stringify({ userId: user?.id, ...body })
+        if (checkoutRequest.current?.fingerprint !== fingerprint) checkoutRequest.current = { fingerprint, key: idempotencyKey() }
+        const result = await api<{ id: string }>('/checkouts/group', { method: 'POST', headers: { 'Idempotency-Key': checkoutRequest.current.key }, body: JSON.stringify(body) })
+        setSummary(false); navigate('/checkout/' + result.id); return
+      }
       const created = await api<Reservation[]>('/reservations/group', { method: 'POST', body: JSON.stringify({ hotelId: Number(id), rooms: booked.map(room => ({ type: room.type, adults: room.adults, children: room.children })), startDate: stay.start, endDate: stay.end }) })
       setSummary(false); setDone(created); setStay(null); setParams({ id })
     } catch (failure) { setSummaryError(message(failure)); setRevision(value => value + 1) } finally { setBusy(false) }
@@ -216,7 +237,7 @@ export default function RoomDetails() {
 
     {picking && rooms.data && <DateRangeModal subtitle={'Disponibilidad de ' + (hotel.data?.name || 'el hotel')} rooms={rooms.data} initialStart={stay?.start || ''} initialEnd={stay?.end || ''} focus={stay?.start || dateAfter(1)}
       onConfirm={applyDates} onCancel={() => setPicking(false)} />}
-    {summary && stay && current && user && <ReservationSummaryModal hotelName={hotel.data?.name || ''} types={types} rooms={booked} start={stay.start} end={stay.end} busy={busy} error={summaryError}
-      onBack={() => { setSummary(false); setSummaryError('') }} onConfirm={confirm} />}
+    {summary && stay && current && user && <ReservationSummaryModal hotelName={hotel.data?.name || ''} types={types} rooms={booked} start={stay.start} end={stay.end} busy={busy} ready={checkoutConfig !== null} error={summaryError || checkoutError} checkout={checkoutConfig?.enabled ?? false}
+      onBack={() => { setSummary(false); setSummaryError('') }} onConfirm={confirm}>{checkoutConfig?.enabled && <PaymentOptions value={paymentChoice} onChange={setPaymentChoice} />}</ReservationSummaryModal>}
   </section>
 }

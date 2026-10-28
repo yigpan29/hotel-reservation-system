@@ -11,8 +11,8 @@ import app.mnhotel.hotel_reservation_system_backend.repository.*;
 import app.mnhotel.hotel_reservation_system_backend.exception.ApiException;
 @Service @Transactional
 public class RoomServiceImp {
-    private final RoomRepository rooms;private final ReservationRepository bookings;private final HotelServiceImp hotels;
-    public RoomServiceImp(RoomRepository rooms,ReservationRepository bookings,HotelServiceImp hotels){this.rooms=rooms;this.bookings=bookings;this.hotels=hotels;}
+    private final RoomRepository rooms;private final ReservationRepository bookings;private final HotelServiceImp hotels;private final org.springframework.jdbc.core.JdbcTemplate jdbc;
+    public RoomServiceImp(RoomRepository rooms,ReservationRepository bookings,HotelServiceImp hotels,org.springframework.jdbc.core.JdbcTemplate jdbc){this.rooms=rooms;this.bookings=bookings;this.hotels=hotels;this.jdbc=jdbc;}
     public static final int maxAdults=20,maxChildren=20;
     private static final Map<String,Integer> capacities=Map.of("Individual",1,"Doble",2,"Matrimonial",2,"Deluxe",3,"Familiar",4,"Suite",4);
     public static final int defaultCapacity=2;
@@ -53,8 +53,9 @@ public class RoomServiceImp {
         LocalDate start=from==null?today():from;LocalDate end=to==null?start.plusMonths(12):to;
         if(!end.isAfter(start))throw ApiException.bad("La fecha final del calendario debe ser posterior a la inicial");
         if(ChronoUnit.DAYS.between(start,end)>400)throw ApiException.bad("El calendario admite como máximo 400 días por consulta");
-        var occupied=bookings.occupancy(roomId,start.atStartOfDay(),end.atStartOfDay()).stream()
-            .map(r->new Views.OccupiedRange(r.getStartDate().toLocalDate(),r.getEndDate().toLocalDate())).toList();
+        var occupied=new ArrayList<>(bookings.occupancy(roomId,start.atStartOfDay(),end.atStartOfDay()).stream()
+            .map(r->new Views.OccupiedRange(r.getStartDate().toLocalDate(),r.getEndDate().toLocalDate())).toList());
+        occupied.addAll(jdbc.query("SELECT c.start_date,c.end_date FROM checkouts c WHERE ((c.request_payload IS NULL AND c.room_id=?) OR EXISTS(SELECT 1 FROM checkout_items i WHERE i.checkout_id=c.id AND i.room_id=?)) AND c.start_date<? AND c.end_date>? AND (c.stage='FINALIZING' OR (c.stage='PENDING' AND c.expires_at>now()))",(r,n)->new Views.OccupiedRange(r.getDate(1).toLocalDate(),r.getDate(2).toLocalDate()),roomId,roomId,end,start));
         return new Views.RoomAvailabilityView(room.getId(),room.getHotel().getId(),room.getHotel().getName(),room.getRoomNumber(),
             room.getType(),room.getPricePerNight(),room.getActive(),start,end,occupied);
     }

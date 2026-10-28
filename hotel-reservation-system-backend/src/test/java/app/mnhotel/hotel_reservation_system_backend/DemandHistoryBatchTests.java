@@ -17,6 +17,23 @@ class DemandHistoryBatchTests {
     void clear(){assertThat(jdbc.queryForObject("select current_database()",String.class)).isEqualTo("hotel_test");jdbc.execute("truncate payments,reviews,reservations,rooms,hotels,users restart identity cascade");}
     @BeforeEach void setup(){clear();reference=RoomServiceImp.today();owner=auth.register(new Requests.Register("existing-user","existing-user@example.invalid","Existing-test-123")).id();for(int h=0;h<2;h++){Long hotel=hotels.save(null,new Requests.HotelInput("Batch hotel "+h,"Demo","Synthetic",null,true)).id();for(int r=0;r<6;r++)room=rooms.save(null,new Requests.RoomInput(hotel,"R"+r,"Doble",100+r*10,true)).id();}}
     @AfterEach void cleanup(){clear();}
+    @Test void paymentProfilePreventsHistoryDeletionWithoutWeakeningGuards(){
+        create("batch-payment-guard");
+        Long technicalUser=jdbc.queryForObject("select technical_user_id from reservation_demo_batches where code='batch-payment-guard'",Long.class);
+        jdbc.update("insert into payment_profiles(id,user_id) values (?,?)",UUID.randomUUID(),technicalUser);
+        assertThatThrownBy(()->batches.revert("batch-payment-guard","hotel_test","REVERT_HISTORY_BATCH:batch-payment-guard"))
+            .isInstanceOf(IllegalStateException.class).hasMessageContaining("dependencias de pago");
+        assertThat(jdbc.queryForObject("select count(*) from reservation_demo_items",Long.class)).isPositive();
+        assertThat(jdbc.queryForObject("select status from reservation_demo_batches where code='batch-payment-guard'",String.class)).isEqualTo("ACTIVE");
+    }
+    @Test void unknownForeignKeyStillRequiresReview(){
+        create("batch-unknown-guard");
+        jdbc.execute("create table unknown_history_dependency(id bigint references reservations(id))");
+        try {
+            assertThatThrownBy(()->batches.revert("batch-unknown-guard","hotel_test","REVERT_HISTORY_BATCH:batch-unknown-guard"))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("no contempladas");
+        } finally { jdbc.execute("drop table unknown_history_dependency"); }
+    }
     DemandHistoryBatchService.Options options(String code){return new DemandHistoryBatchService.Options(code,reference,73003L,12);}
     DemandHistoryBatchService.Result create(String code){return batches.create(options(code),"hotel_test","CREATE_HISTORY_BATCH");}
     String existing(){return jdbc.queryForObject("select md5(to_jsonb(u)::text) from users u where id=?",String.class,owner);}

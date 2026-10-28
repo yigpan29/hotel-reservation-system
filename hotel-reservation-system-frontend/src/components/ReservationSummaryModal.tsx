@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import Modal from './Modal'
 import Button from '../ui/Button'
 import Notice from '../ui/Notice'
@@ -7,7 +8,7 @@ import { money, nightsBetween, type RoomType } from '../types'
 import { BedIcon, CalendarIcon, UsersIcon } from '../ui/Icons'
 
 /** Segundo modal, independiente del calendario: resume habitaciones, huéspedes y precio antes de guardar. */
-export default function ReservationSummaryModal({ hotelName, types, rooms, start, end, busy, error, onBack, onConfirm }: { hotelName: string; types: RoomType[]; rooms: RoomGroup[]; start: string; end: string; busy: boolean; error: string; onBack: () => void; onConfirm: () => void }) {
+export default function ReservationSummaryModal({ hotelName, types, rooms, start, end, busy, error, onBack, onConfirm, children, checkout = false, ready = true }: { hotelName: string; types: RoomType[]; rooms: RoomGroup[]; start: string; end: string; busy: boolean; error: string; onBack: () => void; onConfirm: () => void; children?: ReactNode; checkout?: boolean; ready?: boolean }) {
   const nights = nightsBetween(start, end), guests = roomsGuests(rooms)
   const groups: { heading: string; Glyph: typeof BedIcon; rows: [string, string][] }[] = [
     {
@@ -47,14 +48,15 @@ export default function ReservationSummaryModal({ hotelName, types, rooms, start
       </div>
 
       <p className="text-xs leading-relaxed text-ink-500">
-        La salida es exclusiva. Los datos de cada huésped se registran en el check-in.
+        {checkout ? 'El total definitivo y el importe de cada habitación se muestran en el checkout antes de autorizar el pago. Todas se confirman juntas tras verificar el cobro.' : 'La salida es exclusiva. Los datos de cada huésped se registran en el check-in.'}
       </p>
 
+      {children}
       {error && <Notice tone="error" role="alert">{error}</Notice>}
 
       <div className="flex flex-col-reverse gap-3 border-t border-ink-100 pt-5 sm:flex-row sm:justify-end">
         <Button variant="secondary" disabled={busy} onClick={onBack} className="sm:w-auto" full>Volver</Button>
-        <Button loading={busy} onClick={onConfirm} className="sm:w-auto" full>{busy ? 'Confirmando…' : 'Confirmar reserva'}</Button>
+        <Button loading={busy} disabled={!ready} onClick={onConfirm} className="sm:w-auto" full>{busy ? 'Confirmando…' : checkout ? 'Continuar al pago' : 'Confirmar reserva'}</Button>
       </div>
     </div>
   </Modal>

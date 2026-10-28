@@ -183,6 +183,7 @@ aprobación y merge por el equipo quedan pendientes; no se hace merge automátic
 ## Historial autorizado de demostración en desarrollo
 
 La carga explícita del 27/10/2026 y su procedencia por lote se documentan en
-[Historial sintético HU-03](HU03_HISTORIAL_SINTETICO.md). V6 añade seguimiento
+[Historial sintético HU-03](HU03_HISTORIAL_SINTETICO.md). Su archivo activo V6
+(originalmente V3 en aquella instalación) añade seguimiento
 reversible sin cambiar V1/V2 ni la fórmula. El fixture aislado descrito arriba
 sigue siendo independiente; ahora existe además el lote autorizado en hotel-bd.

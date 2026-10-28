@@ -22,13 +22,18 @@ const freshPlans = (): Record<string, Partial<Allocation>> => ({
   '9-0': { feasible: false, minimumRooms: 3, availableRooms: 3, types: [doble, suite], message: blocked },
 })
 let plans = freshPlans(), calls: string[] = [], posted: unknown[] = []
+let checkoutEnabled = false, checkoutConfigFailure = false
+let checkoutPosted: Record<string, unknown>[] = []
 const allocationCalls = () => calls.filter(path => path.startsWith('/api/rooms/allocation'))
 
 function mockBackend() {
-  plans = freshPlans(); calls = []; posted = []
+  plans = freshPlans(); calls = []; posted = []; checkoutEnabled = false; checkoutConfigFailure = false; checkoutPosted = []
   vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
     const path = String(url); calls.push(path)
     const body = (value: unknown, status = 200) => ({ ok: true, status, json: async () => value })
+    if (path === '/api/checkouts/config') return checkoutConfigFailure ? { ok: false, status: 503, json: async () => ({ message: 'Pago no disponible' }) } : body({ enabled: checkoutEnabled })
+    if (path === '/api/payment-methods') return body([])
+    if (path === '/api/checkouts/group') { checkoutPosted.push(JSON.parse(String(options?.body))); return body({ id: 'synthetic-order' }) }
     if (path.startsWith('/api/hotels/1/rooms')) return body([room])
     if (path.startsWith('/api/hotels/1')) return body({ id: 1, name: 'Hotel Demo 1', location: 'Panamá', description: 'Inventario sintético', rating: null, active: true })
     if (path.startsWith('/api/auth/csrf')) return body({ token: 'synthetic', headerName: 'X-CSRF-TOKEN' })
@@ -47,7 +52,7 @@ const session: Session = { user: { id: 1, username: 'owner', email: 'owner@examp
 /** Abre la página con fechas ya elegidas y espera al primer cálculo del backend. */
 function open(query = '?id=1&startDate=' + start + '&endDate=' + end) {
   render(<AuthContext.Provider value={session}><MemoryRouter initialEntries={['/productDetail' + query]}>
-    <Routes><Route path="/productDetail" element={<RoomDetails />} /></Routes>
+    <Routes><Route path="/productDetail" element={<RoomDetails />} /><Route path="/checkout/:id" element={<h1>Checkout de pruebas</h1>} /></Routes>
   </MemoryRouter></AuthContext.Provider>)
   return screen.findByRole('region', { name: 'Habitación 1' })
 }
@@ -201,5 +206,37 @@ describe('RoomDetails · habitaciones y huéspedes', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar reserva' }))
     await waitFor(() => expect(screen.getByRole('dialog', { name: 'Resumen de tu reserva' }).textContent).toContain('ya no admite'))
     expect(posted).toEqual([])
+  })
+})
+
+
+describe('RoomDetails · entrada al checkout', () => {
+  it('pide consentimiento explícito y envía el pedido al checkout sin confirmar gratis', async () => {
+    checkoutEnabled = true
+    await open(); choose('Doble', 1); fireEvent.click(continueButton())
+    const consent = await screen.findByRole('checkbox', { name: /Autorizo guardar/ })
+    expect((consent as HTMLInputElement).checked).toBe(false)
+    fireEvent.click(consent)
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar al pago' }))
+    await screen.findByRole('heading', { name: 'Checkout de pruebas' })
+    expect(posted).toEqual([])
+    expect(checkoutPosted).toEqual([{ hotelId: 1, rooms: [{ type: 'Doble', adults: 2, children: 0 }], startDate: start, endDate: end, saveMethod: true, paymentMethodId: null }])
+  })
+  it('no guarda el método cuando la casilla queda sin marcar', async () => {
+    checkoutEnabled = true
+    await open(); choose('Doble', 1); fireEvent.click(continueButton())
+    await screen.findByRole('checkbox', { name: /Autorizo guardar/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar al pago' }))
+    await screen.findByRole('heading', { name: 'Checkout de pruebas' })
+    expect(checkoutPosted[0]).toMatchObject({ saveMethod: false, paymentMethodId: null })
+    expect(posted).toEqual([])
+  })
+  it('un fallo de configuración de pago bloquea confirmar y permite volver', async () => {
+    checkoutConfigFailure = true
+    await open(); choose('Doble', 1); fireEvent.click(continueButton())
+    expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Pago no disponible')
+    expect((screen.getByRole('button', { name: 'Confirmar reserva' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Volver' }) as HTMLButtonElement).disabled).toBe(false)
+    expect(posted).toEqual([]); expect(checkoutPosted).toEqual([])
   })
 })

@@ -16,6 +16,7 @@ import { buttonClass } from './ui/button-class'
 import { Loading } from './ui/Loading'
 import Notice from './ui/Notice'
 import { ShieldIcon } from './ui/Icons'
+import Checkout from './pages/Checkout'
 
 /** Pantalla breve y con salida: nunca un callejón sin botón. */
 function Blocked({ title, children, action }: { title: string; children: ReactNode; action: ReactNode }) {
@@ -28,7 +29,6 @@ function Blocked({ title, children, action }: { title: string; children: ReactNo
     </div>
   </section>
 }
-
 function Guard({ children, admin = false }: { children: ReactNode; admin?: boolean }) {
   const { user, loading, error } = useAuth(), location = useLocation()
   if (loading) return <div className="page"><Loading label="Cargando sesión…" /></div>
@@ -40,7 +40,6 @@ function Guard({ children, admin = false }: { children: ReactNode; admin?: boole
   </Blocked>
   return children
 }
-
 export default function App() {
   return <BrowserRouter>
     <AuthProvider>
@@ -57,6 +56,7 @@ export default function App() {
             <Route path="/register" element={<Auth register />} />
             <Route path="/my-reservations" element={<Guard><MyReservations /></Guard>} />
             <Route path="/admin" element={<Guard admin><AdminPanel /></Guard>} />
+            <Route path="/checkout/:id" element={<Guard><Checkout /></Guard>} />
             <Route path="*" element={<Blocked title="Página no encontrada"
               action={<Link to="/products" className={buttonClass('primary')}>Explorar hoteles</Link>}>
               La dirección que abriste no existe o la reserva que buscabas ya no está disponible.

@@ -1,5 +1,9 @@
 # HU-03: historial académico reproducible
 
+El archivo activo del historial es ahora **V6**, conservando su SQL. Las menciones
+a V3 en la ejecución del 27/10 son históricas. Una base que ya tenga esa V3
+necesita adopción revisada antes de actualizar: [corrección V6](MIGRACIONES_HISTORIAL_V6.md).
+
 ## Diagnóstico y ejecución real — 27/10/2026
 
 Antes de intervenir, `hotel-bd` tenía 13 hoteles, 72 habitaciones activas y una
@@ -67,7 +71,7 @@ los UUID, IDs y contraseñas aleatorias no forman parte de esa reproducibilidad.
 
 ## Ejecución explícita
 
-En una instalación con V3 previamente revisada y aplicada, desde PowerShell:
+En una instalación con V6 de historial previamente revisada y aplicada, desde PowerShell:
 
 ```powershell
 # hotel-bd de desarrollo: confirma escrituras y realiza un respaldo privado.

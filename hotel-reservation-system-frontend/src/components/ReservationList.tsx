@@ -5,6 +5,7 @@ import { dateAfter, money, nightsBetween, type Reservation } from '../types'
 import Badge, { type BadgeTone } from '../ui/Badge'
 import Button from '../ui/Button'
 import Notice from '../ui/Notice'
+import DownloadCertificate from './DownloadCertificate'
 import { BedIcon, CalendarIcon, TicketIcon, UsersIcon } from '../ui/Icons'
 
 const states: Record<string, { label: string; tone: BadgeTone }> = {
@@ -17,7 +18,7 @@ const stamp = (value: string | null) => value ? value.replace('T', ' ').slice(0,
  * Las reservas como fichas: estado arriba, datos de la estadía en una rejilla y la
  * única acción posible abajo. `admin` añade los identificadores que solo necesita el panel.
  */
-export default function ReservationList({ reservations, refresh, admin = false }: { reservations: Reservation[]; refresh(): void; admin?: boolean }) {
+export default function ReservationList({ reservations, refresh, admin = false, certificates = false }: { reservations: Reservation[]; refresh(): void; admin?: boolean; certificates?: boolean }) {
   const [busy, setBusy] = useState<number | null>(null), [error, setError] = useState(''), [success, setSuccess] = useState('')
   async function cancel(id: number) { setBusy(id); setError(''); setSuccess(''); try { await api('/reservations/' + id + '/cancel', { method: 'POST' }); setSuccess('Reserva #' + id + ' cancelada. El historial se conserva.'); refresh() } catch (error) { setError(message(error)) } finally { setBusy(null) } }
 
@@ -66,8 +67,11 @@ export default function ReservationList({ reservations, refresh, admin = false }
               {r.cancelledAt && ' · Cancelada: ' + stamp(r.cancelledAt)}
               {admin && ' · Usuario: ' + r.username + ' (#' + r.userId + ') · Habitación ID: ' + r.roomId}
             </p>
-            {cancellable && <Button variant="danger" size="sm" disabled={busy !== null} loading={busy === r.id}
-              onClick={() => cancel(r.id)}>{busy === r.id ? 'Cancelando…' : 'Cancelar reserva #' + r.id}</Button>}
+            <div className="flex flex-wrap items-center gap-2">
+              {cancellable && <Button variant="danger" size="sm" disabled={busy !== null} loading={busy === r.id}
+                onClick={() => cancel(r.id)}>{busy === r.id ? 'Cancelando…' : 'Cancelar reserva #' + r.id}</Button>}
+              {certificates && <DownloadCertificate id={r.id} />}
+            </div>
           </div>
         </article>
       })}

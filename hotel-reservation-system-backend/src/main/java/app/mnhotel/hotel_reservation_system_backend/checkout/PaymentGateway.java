@@ -1,0 +1,20 @@
+package app.mnhotel.hotel_reservation_system_backend.checkout;
+
+/** Only provider references and non-sensitive state cross this boundary. */
+public interface PaymentGateway {
+    record Intent(String id, String status, long amount, String currency, boolean live,
+                  String checkoutId, String clientSecret, boolean failed, long received, String customerId, String methodId) {}
+    record Card(String id,String customerId,boolean live,String brand,String lastFour,int month,int year) {}
+    record RefundResult(String id,String status,long amount,String intentId,String currency) {}
+    Intent create(CheckoutStore.Checkout checkout);
+    Intent retrieve(String id);
+    Intent capture(String id, String key);
+    Intent cancel(String id, String key);
+    RefundResult refund(String id, String key);
+    RefundResult refund(String id,String key,long amount);
+    RefundResult retrieveRefund(String id);
+    String verifyWebhook(String body, String signature);
+    String createCustomer(java.util.UUID profileId);
+    Card card(String id);
+    void detach(String id,String expectedCustomer);
+}

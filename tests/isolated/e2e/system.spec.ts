@@ -123,8 +123,18 @@ test('cliente: registro, login, búsqueda, reserva, historial, cancelación y pe
   await expect(page.getByText('CONFIRMED', { exact: true })).toBeVisible()
   // El tipo de habitación se ve junto al número, no solo el número.
   await expect(page.getByText(/Habitación 101 · Doble/)).toBeVisible()
+  const confirmedDownload = page.waitForEvent('download')
+  await page.getByRole('button', { name: /Descargar constancia #/ }).click()
+  const confirmedPdf = await confirmedDownload
+  expect(confirmedPdf.suggestedFilename()).toMatch(/^constancia-reserva-\d+\.pdf$/)
+  expect(await confirmedPdf.failure()).toBeNull()
+  await confirmedPdf.saveAs(test.info().outputPath('constancia-confirmada.pdf'))
+
   await page.getByRole('button', { name: /Cancelar reserva #/ }).click()
   await expect(page.getByText('CANCELLED', { exact: true })).toBeVisible()
+  const canceledDownload = page.waitForEvent('download')
+  await page.getByRole('button', { name: /Descargar constancia #/ }).click()
+  expect(await (await canceledDownload).failure()).toBeNull()
   await page.screenshot({ path: test.info().outputPath('my-reservations.png'), fullPage: true })
   await page.reload()
   await expect(page.getByText('CANCELLED', { exact: true })).toBeVisible()
