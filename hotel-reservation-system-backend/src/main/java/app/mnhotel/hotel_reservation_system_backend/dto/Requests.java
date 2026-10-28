@@ -12,4 +12,8 @@ public final class Requests {
     public record RoomInput(@NotNull @Positive Long hotelId, @NotBlank @Size(max=50) String roomNumber,
         @NotBlank @Size(max=100) String type, @NotNull @Min(0) Integer pricePerNight, @NotNull Boolean active) {}
     public record ReservationInput(@NotNull @Positive Long roomId, @NotNull LocalDate startDate, @NotNull LocalDate endDate) {}
+    /** Reserva de HU6: las habitaciones que eligio el cliente y los huespedes totales, sin datos personales. */
+    public record GroupReservationInput(@NotEmpty @Size(max=20) java.util.List<@NotNull @Positive Long> roomIds,
+        @NotNull LocalDate startDate, @NotNull LocalDate endDate,
+        @NotNull @Min(1) @Max(20) Integer adults, @NotNull @Min(0) @Max(20) Integer children) {}
 }

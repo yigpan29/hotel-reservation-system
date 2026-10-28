@@ -46,4 +46,8 @@ public class Room {
 	@Column(name="availability")
 	private Boolean availability;
 
+	@Column(name="capacity")
+	@Builder.Default
+	private Integer capacity = 2;
+
 }

@@ -36,11 +36,13 @@ El registro asigna siempre USER, aunque se envíe `role: ADMIN`.
 | GET `/hotels/{id}/rooms` | Habitaciones activas del hotel |
 | GET `/hotels/{id}/rooms?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD` | Habitaciones con `available` y `totalPrice` calculados |
 | GET `/rooms/availability?hotelId=...&startDate=...&endDate=...` | Solo habitaciones disponibles |
+| GET `/rooms/allocation?hotelId=...&startDate=...&endDate=...&adults=2&children=0` | Habitaciones mínimas, disponibilidad real y opciones válidas para esos huéspedes |
 | GET `/rooms/{id}/occupancy?from=YYYY-MM-DD&to=YYYY-MM-DD` | Rangos ocupados de una habitación activa, para el calendario |
 
 Hotel: `{id,name,location,description,rating,active}`. Habitación:
-`{id,hotelId,hotelName,roomNumber,type,pricePerNight,active,available,totalPrice}`.
+`{id,hotelId,hotelName,roomNumber,type,pricePerNight,capacity,active,available,totalPrice}`.
 Sin fechas, `available` y `totalPrice` son null: no simulan disponibilidad global.
+`capacity` es la capacidad declarada de la habitación (columna de V3, 1–10).
 
 El calendario de disponibilidad consume `/rooms/{id}/occupancy`:
 `{roomId,hotelId,hotelName,roomNumber,type,pricePerNight,active,from,to,occupied}`.
@@ -50,17 +52,40 @@ Sin parámetros cubre doce meses desde hoy; `to` debe ser posterior a `from` y e
 rango máximo por consulta es de 400 días. No expone usuarios ni identificadores
 de reserva, solo las fechas que bloquean inventario.
 
+## Huéspedes y habitaciones necesarias
+
+`/rooms/allocation` responde
+`{hotelId,startDate,endDate,nights,adults,children,guests,maxRoomCapacity,minimumRooms,
+availableRooms,availableCapacity,feasible,message,rooms}`. `adults` por defecto 2 y
+`children` 0; se exige al menos 1 adulto, se rechazan cantidades negativas y el máximo es
+20 adultos y 20 niños. No se piden datos personales de los huéspedes: se registran en el
+check-in. Las fechas siguen las mismas reglas que una reserva (entrada no pasada, salida
+posterior, 365 noches como máximo).
+
+`minimumRooms` es **solo una referencia**: el mínimo teórico según la mayor capacidad entre los
+tipos reservables del hotel (`maxRoomCapacity`). `availableRooms` y `availableCapacity`
+describen lo que está realmente libre durante **toda** la estadía. `rooms` es el inventario
+reservable del hotel, con disponibles primero y después por tarifa; cada habitación lleva su
+`capacity`, su `totalPrice` para esas noches y `available`, que es false si está ocupada en
+alguna noche de la estadía. El servidor **no elige ni combina habitaciones**: el cliente las
+elige una por una y la interfaz suma su capacidad hasta cubrir a todos los huéspedes. Cada habitación necesita al menos un adulto, así que nunca hacen
+falta más habitaciones que adultos. Si no es posible alojar a todos, `feasible` es false y
+`message` explica el motivo, por ejemplo: «No hay habitaciones suficientes para alojar a 4
+huéspedes. Se requieren al menos 2 habitaciones, pero solo hay 1 disponible para las fechas
+seleccionadas».
+
 ## Reservas
 
 | Método y ruta | Acceso / resultado |
 |---|---|
-| POST `/reservations` | Autenticado, CSRF; `{roomId,startDate,endDate}` → 201 reserva |
+| POST `/reservations` | Autenticado, CSRF; `{roomId,startDate,endDate}` → 201 reserva, sin huéspedes declarados |
+| POST `/reservations/group` | Autenticado, CSRF; `{roomIds,startDate,endDate,adults,children}` → 201 lista de reservas |
 | GET `/reservations/me?page=0&size=20` | Solo reservas propias |
 | GET `/reservations/{id}` | Propietario o ADMIN |
 | POST `/reservations/{id}/cancel` | Propietario o ADMIN, CSRF; actualiza y conserva fila |
 
 Reserva: `{id,hotelId,hotelName,roomId,roomNumber,roomType,userId,username,startDate,endDate,
-status,nightlyPrice,totalPrice,createdAt,cancelledAt}`. `roomType` es el tipo de la
+status,adults,children,nightlyPrice,totalPrice,createdAt,cancelledAt}`. `roomType` es el tipo de la
 habitación al reservar y, como la tarifa, no cambia si luego se reclasifica la habitación
 (null si la habitación no tenía tipo). Las reservas anteriores a V5 se rellenaron con el tipo
 actual de su habitación. Las fechas persistidas
@@ -78,6 +103,17 @@ cancelar una reserva CONFIRMED hasta el día de entrada inclusive; una cancelaci
 repetida es idempotente y conserva su primer timestamp. Reservas ya iniciadas en
 días anteriores y estados legacy desconocidos devuelven 409 al cancelar.
 No hay borrado físico, pagos, checkout ni edición de fechas en esta versión.
+
+`/reservations/group` recibe las habitaciones que eligió el cliente y los huéspedes totales:
+crea una reserva por habitación y reparte los huéspedes entre ellas, un adulto en cada una y
+el resto hasta su capacidad empezando por las más amplias. El cliente no distribuye huéspedes
+por habitación. Antes de confirmar vuelve a validar en el backend las fechas, que cada
+habitación esté activa, que todas sean del mismo hotel, que no se repitan, que no haya más
+habitaciones que adultos y que todas estén libres durante toda la estadía. Devuelve 400 si la
+petición es inválida (huéspedes fuera de rango, habitaciones repetidas, de hoteles distintos
+o más habitaciones que adultos) y 409 si una habitación ya no está habilitada, acaba de
+reservarse o la capacidad elegida no alcanza para todos. `adults`/`children` quedan en null
+en las reservas creadas por `POST /reservations` y en las filas anteriores a V4.
 
 Confirmar bloquea la fila de habitación (`SELECT FOR UPDATE`) dentro de la
 transacción y consulta solapamientos antes de insertar. Dos estancias consecutivas
@@ -98,7 +134,10 @@ la prueba usa PostgreSQL real y dos transacciones/hilos distintos.
 
 Nombres/ubicación/descripción obligatorios, máximo 255; rating opcional 0–5.
 Número de habitación obligatorio, máximo 50 y único por hotel; tipo obligatorio,
-máximo 100; tarifa entera no negativa. No hay endpoints DELETE. Desactivar un
+máximo 100; tarifa entera no negativa. La capacidad la fija el tipo con el mismo
+vocabulario y los mismos valores que la migración V3 (Individual 1, Doble y Matrimonial 2,
+Deluxe 3, Familiar y Suite 4; cualquier otro tipo, 2), así que guardar una habitación
+alinea su capacidad con su tipo y el formulario no la pide por separado. No hay endpoints DELETE. Desactivar un
 hotel/habitación impide nuevas reservas y conserva relaciones e historial.
 
 Listados paginados: `{content,number,totalPages,totalElements}`, size 1–100.

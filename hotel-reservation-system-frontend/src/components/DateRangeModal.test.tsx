@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import DateRangeModal from './DateRangeModal'
 import type { Room } from '../types'
 
-const rooms: Room[] = [{ id: 1, hotelId: 1, hotelName: 'Hotel', roomNumber: '101', type: 'Doble', pricePerNight: 80, active: true, available: null, totalPrice: null }]
+const rooms: Room[] = [{ id: 1, hotelId: 1, hotelName: 'Hotel', roomNumber: '101', type: 'Doble', pricePerNight: 80, capacity: 2, active: true, available: null, totalPrice: null }]
 
 function open(props: { initialStart?: string; initialEnd?: string } = {}) {
   const onConfirm = vi.fn(), onCancel = vi.fn()
