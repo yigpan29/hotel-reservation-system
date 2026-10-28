@@ -572,3 +572,33 @@ retornaron 1 sin baseline y 64 para destinos incorrectos. El PDF y su render
 sintéticos se conservaron en docs/evidencias/hu04 y se inspeccionaron visualmente.
 No se modificó PostgreSQL de desarrollo. HU-04 queda implementada y verificada
 sobre base 9bd8d2e, pendiente de revisión humana e integración del PR.
+
+## HU-04: revisión humana y formato formal de constancia — 28/10/2026
+
+Eric informó que probó las dos demos y que cumplen el comportamiento esperado.
+Solicitó mejorar la constancia porque el texto lineal no tenía la presentación
+formal que esperaba para una reserva de hotel. Esta declaración se registra como
+revisión funcional humana, sin atribuirle pruebas específicas de 3DS o webhooks
+que no describió.
+
+Se sustituyó la presentación lineal por encabezado HOTEL MN y referencia, franja
+de estado, tablas de estancia y registro, total destacado y pie numerado. Se
+conservan los datos pactados, la cancelación, el aviso de que no acredita pagos,
+el control de propiedad y el contrato HTTP. Celdas medidas, ajuste por palabras,
+márgenes y encabezados repetidos evitan recortes de datos extensos.
+
+Las cinco pruebas existentes de constancias pasaron en PostgreSQL tmpfs de un
+proyecto separado, hotel-reservation-system-hu04-format-test; no se truncaron las
+reservas de la demo que Eric acababa de probar. Las pruebas exportan confirmada,
+cancelada y texto largo para inspección visual. Se revisaron los tres PNG y se
+actualizaron PDF/PNG sintéticos de docs/evidencias/hu04. No se volvió a afirmar
+una ejecución de toda la suite: el cambio se validó con sus cinco pruebas de
+contenido, permisos y CSRF, compilación y revisión visual.
+
+Se actualiza únicamente el backend de HU-04 con el perfil isolated para evitar
+repetir el cargador demo. PostgreSQL no se reinicia ni se migra; HU-01 y su
+listener permanecen activos. La revisión y publicación continúan en PR #14,
+siempre en borrador y sin fusionar.
+La huella y cantidad de las reservas de la demo antes y después de actualizar
+backend resultaron idénticas. Ambas demos respondieron HTTP 200. Se detuvo solo
+el PostgreSQL auxiliar de pruebas de formato; las dos demos permanecen activas.

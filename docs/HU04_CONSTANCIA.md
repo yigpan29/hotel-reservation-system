@@ -4,6 +4,12 @@ Refs #6. Como cliente con reservas registradas, quiero descargar una constancia 
 
 En **Mis reservas**, usar **Descargar constancia #ID**, tanto para reservas confirmadas como canceladas. El PDF incluye hotel, habitación, titular, fechas, estado, precios pactados y fecha de cancelación si existe. Los importes heredados ausentes se muestran como «No registrado»; nunca se calculan con la tarifa actual. Es una constancia informativa, no una factura ni prueba de pago.
 
+La presentación formal incluye encabezado HOTEL MN, referencia de reserva,
+franja de estado, tablas de estancia y registro, resumen de importes con total
+destacado y pie con numeración. Las celdas se ajustan al texto; los encabezados
+y el pie se repiten si se necesita otra página. La cancelación se distingue
+con una franja roja y conserva su fecha en la tabla de registro.
+
 `GET /api/reservations/{id}/certificate` requiere sesión y propiedad de la reserva; no concede excepción a administradores. Responde `application/pdf`, adjunto `constancia-reserva-ID.pdf`, `Cache-Control: no-store, private`. Devuelve 401 sin sesión, 403 para otra persona y 404 si no existe. GET solo lee: no requiere token CSRF; las operaciones que escriben siguen protegidas.
 
 Se utiliza Apache PDFBox 3.0.8, según [documentación oficial](https://pdfbox.apache.org/3.0/getting-started.html). No se almacenan PDFs en el servidor ni se modifica el esquema. Las fuentes PDF estándar soportan español; glifos fuera de su repertorio se sustituyen por `?`, sin provocar errores. El texto largo se divide entre líneas y páginas.
