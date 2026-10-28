@@ -1,7 +1,7 @@
 -- Tipo de habitación congelado en cada reserva, igual que la tarifa pactada: renombrar o
 -- reclasificar la habitación después no reescribe lo que el cliente reservó.
--- La numeración salta a V5 porque V3 y V4 ya están aplicadas en bases de desarrollo
--- (rama de huéspedes) y Flyway rechazaría reutilizarlas.
+-- V3 y V4 (capacidad de habitación y huéspedes por reserva) solo añaden esquema y ya están aplicadas
+-- en bases de desarrollo: Flyway exige conservarlas y no permite reutilizar su número.
 ALTER TABLE reservations ADD COLUMN room_type character varying(255);
 -- Las reservas existentes no guardaron el tipo. Se rellena con el tipo actual de su habitación,
 -- que es la única información disponible; las habitaciones sin tipo dejan el valor en NULL.
