@@ -18,6 +18,23 @@ import com.stripe.model.PaymentMethod;
 import com.stripe.net.RequestOptions;
 
 class StripeWebhookTests {
+    @Test void createUsesSupportedCardAllowlistAndManualCapture()throws Exception{
+        var checkout=mock(app.mnhotel.hotel_reservation_system_backend.checkout.CheckoutStore.Checkout.class);
+        var id=java.util.UUID.randomUUID();when(checkout.id()).thenReturn(id);when(checkout.amount()).thenReturn(8000L);
+        var intent=new com.stripe.model.PaymentIntent();intent.setId("pi_synthetic");intent.setStatus("requires_payment_method");
+        intent.setAmount(8000L);intent.setAmountReceived(0L);intent.setCurrency("usd");intent.setLivemode(false);
+        intent.setMetadata(java.util.Map.of("checkout_id",id.toString()));
+        try(var intents=mockStatic(com.stripe.model.PaymentIntent.class)){
+            intents.when(()->com.stripe.model.PaymentIntent.create(anyMap(),any(RequestOptions.class))).thenAnswer(call->{
+                java.util.Map<String,Object> params=call.getArgument(0);
+                assertThat(params).containsEntry("allowed_payment_method_types",java.util.List.of("card"))
+                    .containsEntry("capture_method","manual").doesNotContainKey("payment_method_types");
+                return intent;
+            });
+            var gateway=new StripeGateway(config("sk_test_synthetic"),new ObjectMapper());
+            assertThat(gateway.create(checkout).id()).isEqualTo("pi_synthetic");
+        }
+    }
     final String secret="whsec_SYNTHETIC_UNIT_TEST_ONLY";
     CheckoutConfig config(String key){return new CheckoutConfig(new MockEnvironment().withProperty("HOTEL_CHECKOUT_ENABLED","true")
         .withProperty("STRIPE_PUBLISHABLE_KEY","pk_test_synthetic").withProperty("STRIPE_SECRET_KEY",key).withProperty("STRIPE_WEBHOOK_SECRET",secret));}

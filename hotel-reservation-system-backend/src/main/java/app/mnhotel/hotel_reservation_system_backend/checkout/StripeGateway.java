@@ -38,7 +38,7 @@ public class StripeGateway implements PaymentGateway {
     public Intent create(CheckoutStore.Checkout c) {
         try {
             Map<String,Object> params=new HashMap<>(Map.of("amount", c.amount(), "currency", "usd",
-                "payment_method_types", List.of("card"), "capture_method", "manual",
+                "allowed_payment_method_types", List.of("card"), "capture_method", "manual",
                 "metadata", Map.of("checkout_id", c.id().toString())));
             if(c.customerId()!=null)params.put("customer",c.customerId());
             if(c.providerMethodId()!=null)params.put("payment_method",c.providerMethodId());
