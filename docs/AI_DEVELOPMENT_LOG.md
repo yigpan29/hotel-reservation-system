@@ -1007,3 +1007,36 @@ Se añadió una fila a docs/INFORME_ERIC.md, con decisión humana en primera per
 Esta actualización es documental: diff/whitespace y estados remotos comprobados;
 no se repiten pagos ni pruebas de aplicación por este cambio. Las validaciones
 previas corresponden a la implementación verificada, no a nuevas ejecuciones.
+
+
+## 2026-10-28 — Falso fallo de arranque aislado por espera insuficiente
+
+Eric pegó el fallo clean-application-bootstrap del reporte privado
+20261028-182101, al ejecutar main 461b87c. Migraciones V1–V6/V8, instalación,
+adopción y comparación de datos/secuencias habían pasado. El script abandonó
+tras 40 intentos de salud; el log confirma que el backend terminó de iniciar
+unos segundos después (46,405 s de Boot; 49,078 s del proceso), ya bajo cleanup.
+No se atribuye el error a Flyway ni se afirma completada esa suite interrumpida.
+
+En fix/espera-arranque-demo se cambia únicamente la espera: deadline real de
+120 segundos, curl con timeout de conexión/lectura y diagnóstico separado si
+el proceso termina. Se conserva la exigencia de health HTTP correcto y catálogo
+vacío, así como las guardas de URL/perfil y limpieza del proceso.
+
+Verificación: imagen reconstruida, ejecución del JAR real con una hotel_demo
+nueva en un PostgreSQL tmpfs independiente, proyecto
+hotel-reservation-system-startup-check. Pasó con código 0 y marcador
+CLEAN_APPLICATION_STARTUP_WITH_AUTOMATIC_FLYWAY_OK, aplicando las siete migraciones
+actuales automáticamente y comprobando catálogo vacío. No se repitió por este
+cambio acotado la suite completa de aplicación ni se ejecutaron pagos.
+La demo del usuario y PostgreSQL de desarrollo no se usaron para esta prueba.
+
+
+Recuperación de la demo: la base hotel_test del usuario tenía cero usuarios,
+hoteles, habitaciones, reservas y checkouts. Se cargó una sola vez el catálogo
+sintético oficial (2 cuentas, 3 hoteles, 6 habitaciones) con perfil demo;
+después se recreó únicamente backend con perfil isolated para no repetir la
+carga al reiniciar. Se conservó la configuración sandbox y el listener que Eric
+había iniciado hacia 55173. Frontend/backend saludables. Comprobación HTTP:
+portada y health 200, login con CSRF y sesión de demo-user, catálogo de tres
+hoteles y config checkout enabled/test correctos. Sin transacciones de pago.
