@@ -158,6 +158,26 @@ describe('RoomDetails · habitaciones y huéspedes', () => {
     expect(continueButton().disabled).toBe(false)
   })
 
+  it('sugiere cambiar de fechas cuando el hotel no tiene nada libre', async () => {
+    plans['2-0'] = { feasible: false, minimumRooms: 1, availableRooms: 0, types: [], message: 'No hay habitaciones disponibles para las fechas seleccionadas.' }
+    await open()
+    const alert = screen.getByRole('alert')
+    expect(alert.textContent).toContain('No hay habitaciones disponibles para las fechas seleccionadas.')
+    expect(alert.textContent).toContain('Prueba con otras fechas para encontrar habitaciones libres.')
+    expect(continueButton().disabled).toBe(true)
+  })
+
+  it('sugiere eliminar una habitación cuando se piden más de las que quedan', async () => {
+    plans['4-0'] = { feasible: true, minimumRooms: 1, availableRooms: 1, types: [doble] }
+    await open()
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar habitación' }))
+    await recalculated('adults=4&children=0')
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('Pediste 2 habitaciones y solo queda 1 disponible para las fechas seleccionadas.')
+    expect(alert.textContent).toContain('Elimina una habitación o prueba con otras fechas.')
+    expect(continueButton().disabled).toBe(true)
+  })
+
   it('confirma enviando cada habitación con su tipo y sus huéspedes', async () => {
     await open()
     choose('Doble', 1)

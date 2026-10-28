@@ -51,6 +51,19 @@ describe('GuestSelector', () => {
     expect(counters()).toEqual(['20', '20'])
   })
 
+  it('se puede nombrar para distinguir los contadores de cada habitación', () => {
+    render(<GuestSelector guests={defaultGuests} onChange={() => {}} name="la habitación 2" />)
+    expect(screen.getByRole('group', { name: 'Huéspedes de la habitación 2' })).toBeTruthy()
+    expect(control('Agregar un adulto de la habitación 2')).toBeTruthy()
+    expect(control('Quitar un niño de la habitación 2')).toBeTruthy()
+  })
+
+  it('puede ocultar las ayudas cuando se repite en varias habitaciones', () => {
+    render(<GuestSelector guests={defaultGuests} onChange={() => {}} hints={false} />)
+    expect(screen.queryByText('Mínimo 1, máximo 20')).toBeNull()
+    expect(screen.getByText('2 adultos · 2 huéspedes')).toBeTruthy()
+  })
+
   it('no pide ningún dato personal de los huéspedes', () => {
     render(<Harness />)
     expect(screen.queryAllByRole('textbox')).toEqual([])

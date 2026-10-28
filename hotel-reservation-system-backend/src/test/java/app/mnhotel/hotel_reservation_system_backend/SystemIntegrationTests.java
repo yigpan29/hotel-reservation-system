@@ -271,4 +271,48 @@ class SystemIntegrationTests {
         createGroup(session,guests(List.of(group("Doble",2,0)))).andExpect(status().isConflict());
         assertThat(jdbc.queryForObject("select count(*) from reservations",Integer.class)).isEqualTo(1);
     }
+    @Test void groupReservationRequestLimitsAreValidatedBeforeWriting() throws Exception {
+        var session=login("owner","Owner-test-123");
+        var tooManyRooms=new ArrayList<Requests.GroupRoomInput>();
+        for(int index=0;index<21;index++)tooManyRooms.add(group("Doble",1,0));
+        var invalid=List.of(
+            new Requests.GroupReservationInput(0L,List.of(group("Doble",1,0)),start,end),
+            new Requests.GroupReservationInput(hotelId,null,start,end),
+            new Requests.GroupReservationInput(hotelId,List.of(),start,end),
+            new Requests.GroupReservationInput(hotelId,tooManyRooms,start,end),
+            new Requests.GroupReservationInput(hotelId,List.of(new Requests.GroupRoomInput("Doble",null,0)),start,end),
+            new Requests.GroupReservationInput(hotelId,List.of(group("Doble",21,0)),start,end),
+            new Requests.GroupReservationInput(hotelId,List.of(new Requests.GroupRoomInput("Doble",1,null)),start,end),
+            new Requests.GroupReservationInput(hotelId,List.of(group("Doble",1,21)),start,end),
+            new Requests.GroupReservationInput(hotelId,Arrays.asList((Requests.GroupRoomInput)null),start,end),
+            new Requests.GroupReservationInput(hotelId,List.of(group("Doble",1,0)),null,end),
+            new Requests.GroupReservationInput(hotelId,List.of(group("Doble",1,0)),start,null));
+        for(var request:invalid)createGroup(session,request).andExpect(status().isBadRequest());
+        assertThat(jdbc.queryForObject("select count(*) from reservations",Integer.class)).isZero();
+    }
+    @Test void groupReservationRejectsInvalidStayWindowsWithoutWriting() throws Exception {
+        var session=login("owner","Owner-test-123");var today=RoomServiceImp.today();
+        for(var request:List.of(
+                new Requests.GroupReservationInput(hotelId,List.of(group("Doble",1,0)),today.minusDays(1),today),
+                new Requests.GroupReservationInput(hotelId,List.of(group("Doble",1,0)),start,start),
+                new Requests.GroupReservationInput(hotelId,List.of(group("Doble",1,0)),end,start),
+                new Requests.GroupReservationInput(hotelId,List.of(group("Doble",1,0)),start,start.plusDays(366))))
+            createGroup(session,request).andExpect(status().isBadRequest());
+        assertThat(jdbc.queryForObject("select count(*) from reservations",Integer.class)).isZero();
+    }
+    @Test void groupReservationIsAtomicWhenALaterGroupIsInvalid() throws Exception {
+        var session=login("owner","Owner-test-123");
+        createGroup(session,guests(List.of(group("Doble",2,0),group("Inexistente",1,0))))
+            .andExpect(status().isBadRequest());
+        assertThat(jdbc.queryForObject("select count(*) from reservations",Integer.class)).isZero();
+    }
+    @Test void twoConcurrentGroupRequestsProduceExactlyOneBooking() throws Exception {
+        var request=guests(List.of(group("Doble",2,0)));
+        ExecutorService pool=Executors.newFixedThreadPool(2);CountDownLatch ready=new CountDownLatch(2),go=new CountDownLatch(1);
+        Callable<Integer> task=()->{ready.countDown();if(!go.await(10,TimeUnit.SECONDS))throw new IllegalStateException("Barrier timed out");try{reservations.createGroup("owner",request);return 201;}catch(ApiException e){return e.getStatus().value();}};
+        try {var first=pool.submit(task);var second=pool.submit(task);assertThat(ready.await(10,TimeUnit.SECONDS)).isTrue();go.countDown();
+            assertThat(List.of(first.get(20,TimeUnit.SECONDS),second.get(20,TimeUnit.SECONDS))).containsExactlyInAnyOrder(201,409);}
+        finally {pool.shutdownNow();}
+        assertThat(jdbc.queryForObject("select count(*) from reservations where status='CONFIRMED'",Integer.class)).isEqualTo(1);
+    }
 }
