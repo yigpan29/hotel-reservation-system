@@ -12,6 +12,10 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.HexFormat;
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
+import com.stripe.model.PaymentMethod;
+import com.stripe.net.RequestOptions;
 
 class StripeWebhookTests {
     final String secret="whsec_SYNTHETIC_UNIT_TEST_ONLY";
@@ -40,5 +44,23 @@ class StripeWebhookTests {
     @Test void liveAndMissingKeysAreRejectedBeforeAnyProviderCall(){
         assertThatThrownBy(()->config("sk_live_SYNTHETIC_REJECTED").requireSandbox()).isInstanceOf(ApiException.class);
         assertThatThrownBy(()->new CheckoutConfig(new MockEnvironment()).requireSandbox()).isInstanceOf(ApiException.class);
+    }
+    @Test void revocationNeverDetachesAnotherProvidersCustomer()throws Exception{
+        var gateway=new StripeGateway(config("sk_test_synthetic"),new ObjectMapper());
+        var method=mock(PaymentMethod.class);when(method.getCustomer()).thenReturn("cus_another_owner");
+        try(var methods=mockStatic(PaymentMethod.class)) {
+            methods.when(()->PaymentMethod.retrieve(anyString(),any(RequestOptions.class))).thenReturn(method);
+            assertThatThrownBy(()->gateway.detach("pm_synthetic","cus_expected_owner")).isInstanceOf(ApiException.class);
+            verify(method,never()).detach(anyMap(),any(RequestOptions.class));
+        }
+    }
+    @Test void missingProviderMethodIsDefinitiveAndCanReleaseTheHold()throws Exception{
+        var gateway=new StripeGateway(config("sk_test_synthetic"),new ObjectMapper());
+        var failure=mock(com.stripe.exception.StripeException.class);when(failure.getStatusCode()).thenReturn(404);
+        try(var methods=mockStatic(PaymentMethod.class)) {
+            methods.when(()->PaymentMethod.retrieve(anyString(),any(RequestOptions.class))).thenThrow(failure);
+            assertThatThrownBy(()->gateway.card("pm_removed")).isInstanceOfSatisfying(ApiException.class,
+                e->assertThat(e.getStatus().value()).isEqualTo(409));
+        }
     }
 }

@@ -17,7 +17,7 @@ public class CheckoutController {
         return Map.of("enabled",config.enabled(),"publishableKey",config.enabled()?config.publicKey():"","mode","test");
     }
     @PostMapping public CheckoutService.View begin(Authentication a,@RequestHeader("Idempotency-Key") String key,
-        @Valid @RequestBody Requests.ReservationInput input) {return service.begin(a.getName(),key,input);}
+        @Valid @RequestBody CheckoutInput input) {return service.begin(a.getName(),key,input);}
     @GetMapping("/me") public java.util.List<CheckoutService.View> mine(Authentication a) {return service.mine(a.getName());}
     // POST because reconcile can capture/confirm a payment. All browser mutations retain CSRF.
     @PostMapping("/{id}/sync") public CheckoutService.View sync(Authentication a,@PathVariable UUID id) {return service.detail(id,a.getName());}

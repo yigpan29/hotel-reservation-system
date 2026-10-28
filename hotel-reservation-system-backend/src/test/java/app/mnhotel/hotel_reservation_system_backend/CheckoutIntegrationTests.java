@@ -33,30 +33,34 @@ class CheckoutIntegrationTests {
     @Autowired MockMvc mvc; @Autowired ObjectMapper json; @Autowired JdbcTemplate jdbc;
     @Autowired AuthServiceImp auth; @Autowired HotelServiceImp hotels; @Autowired RoomServiceImp rooms;
     @Autowired CheckoutService service; @Autowired CheckoutStore store; @Autowired ReservationServiceImp bookings;
+    @Autowired SavedMethods savedMethods;
     @MockBean PaymentGateway gateway;
     final Map<String,PaymentGateway.Intent> intents=new ConcurrentHashMap<>();
     final AtomicInteger captures=new AtomicInteger();
+    final Map<String,PaymentGateway.Card> cards=new ConcurrentHashMap<>();
     Long room;
     final LocalDate start=RoomServiceImp.today().plusDays(5);
     void clear(){assertThat(jdbc.queryForObject("select current_database()",String.class)).isEqualTo("hotel_test");
         jdbc.execute("truncate payments,reviews,reservations,rooms,hotels,users restart identity cascade");}
     @BeforeEach void setup(){
-        clear();intents.clear();captures.set(0);
+        clear();intents.clear();cards.clear();captures.set(0);
         auth.register(new Requests.Register("buyer","buyer@example.invalid","Synthetic-pass-123"));
         auth.register(new Requests.Register("other","other@example.invalid","Synthetic-pass-123"));
         var hotel=hotels.save(null,new Requests.HotelInput("Checkout fixture","Panamá","Synthetic",null,true));
         room=rooms.save(null,new Requests.RoomInput(hotel.id(),"101","Doble",80,true)).id();
         when(gateway.create(any())).thenAnswer(a->{var c=a.getArgument(0,CheckoutStore.Checkout.class);
-            return intents.computeIfAbsent("pi_"+c.id().toString().replace("-",""),k->new PaymentGateway.Intent(k,"requires_payment_method",c.amount(),"usd",false,c.id().toString(),"synthetic_client_secret",false));});
+            return intents.computeIfAbsent("pi_"+c.id().toString().replace("-",""),k->new PaymentGateway.Intent(k,"requires_payment_method",c.amount(),"usd",false,c.id().toString(),"synthetic_client_secret",false,0,c.customerId(),c.providerMethodId()));});
         when(gateway.retrieve(anyString())).thenAnswer(a->intents.get(a.getArgument(0,String.class)));
         when(gateway.capture(anyString(),anyString())).thenAnswer(a->{synchronized(intents){
             var existing=intents.get(a.getArgument(0,String.class));if(existing.status().equals("succeeded"))return existing;
             captures.incrementAndGet();return state(a.getArgument(0),"succeeded",false);}});
         when(gateway.cancel(anyString(),anyString())).thenAnswer(a->state(a.getArgument(0),"canceled",intents.get(a.getArgument(0,String.class)).failed()));
         when(gateway.refund(anyString(),anyString())).thenReturn(new PaymentGateway.RefundResult("re_synthetic","succeeded"));
+        when(gateway.createCustomer(any())).thenAnswer(a->"cus_"+a.getArgument(0,UUID.class).toString().replace("-",""));
+        when(gateway.card(anyString())).thenAnswer(a->cards.get(a.getArgument(0,String.class)));
     }
     @AfterEach void cleanup(){clear();}
-    PaymentGateway.Intent state(String id,String status,boolean failed){var p=intents.get(id);var next=new PaymentGateway.Intent(id,status,p.amount(),p.currency(),p.live(),p.checkoutId(),p.clientSecret(),failed);intents.put(id,next);return next;}
+    PaymentGateway.Intent state(String id,String status,boolean failed){var p=intents.get(id);var next=new PaymentGateway.Intent(id,status,p.amount(),p.currency(),p.live(),p.checkoutId(),p.clientSecret(),failed,status.equals("succeeded")?p.amount():0,p.customerId(),p.methodId());intents.put(id,next);return next;}
     Requests.ReservationInput input(){return new Requests.ReservationInput(room,start,start.plusDays(2));}
     CheckoutStore.Checkout begin(){return store.get(service.begin("buyer",UUID.randomUUID().toString(),input()).id());}
     MockHttpSession login(String name)throws Exception{return (MockHttpSession)mvc.perform(post("/api/auth/login").with(csrf()).contentType(MediaType.APPLICATION_JSON)
@@ -116,20 +120,26 @@ class CheckoutIntegrationTests {
         assertThat(service.detail(c.id(),"buyer").stage()).isEqualTo("REFUND_FAILED");
     }
     @Test void liveOrMismatchedPaymentCannotConfirm(){
-        var c=begin();var p=intents.get(c.intentId());intents.put(p.id(),new PaymentGateway.Intent(p.id(),"succeeded",p.amount()+1,"usd",true,p.checkoutId(),null,false));
+        var c=begin();var p=intents.get(c.intentId());intents.put(p.id(),new PaymentGateway.Intent(p.id(),"succeeded",p.amount()+1,"usd",true,p.checkoutId(),null,false,p.amount(),p.customerId(),p.methodId()));
         assertThatThrownBy(()->service.detail(c.id(),"buyer")).isInstanceOf(ApiException.class);
         assertThat(jdbc.queryForObject("select count(*) from reservations",Integer.class)).isZero();
     }
     @Test void unknownCreationResultRetriesOriginalKey(){
         var calls=new AtomicInteger();
         doAnswer(a->{var c=a.getArgument(0,CheckoutStore.Checkout.class);
-            var p=intents.computeIfAbsent("pi_"+c.id().toString().replace("-",""),k->new PaymentGateway.Intent(k,"requires_payment_method",c.amount(),"usd",false,c.id().toString(),"synthetic_client_secret",false));
+            var p=intents.computeIfAbsent("pi_"+c.id().toString().replace("-",""),k->new PaymentGateway.Intent(k,"requires_payment_method",c.amount(),"usd",false,c.id().toString(),"synthetic_client_secret",false,0,c.customerId(),c.providerMethodId()));
             if(calls.incrementAndGet()==1)throw new ApiException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,"Synthetic timeout");return p;
         }).when(gateway).create(any());
         String key=UUID.randomUUID().toString();assertThatThrownBy(()->service.begin("buyer",key,input())).isInstanceOf(ApiException.class);
         assertThat(jdbc.queryForObject("select count(*) from checkouts",Integer.class)).isEqualTo(1);
         assertThat(jdbc.queryForObject("select count(*) from reservations",Integer.class)).isZero();
         assertThat(service.begin("buyer",key,input()).stage()).isEqualTo("PENDING");assertThat(intents).hasSize(1);
+    }
+    @Test void partialCaptureCannotBeReportedAsFullyPaid(){
+        var c=begin();store.authorize(c.id());var p=intents.get(c.intentId());
+        intents.put(p.id(),new PaymentGateway.Intent(p.id(),"succeeded",p.amount(),"usd",false,p.checkoutId(),null,false,p.amount()/2,p.customerId(),p.methodId()));
+        assertThatThrownBy(()->service.detail(c.id(),"buyer")).isInstanceOf(ApiException.class);
+        assertThat(jdbc.queryForObject("select count(*) from reservations",Integer.class)).isZero();
     }
     @Test void definitiveCaptureFailureReleasesInventory(){
         var c=begin();state(c.intentId(),"requires_capture",false);
@@ -191,5 +201,90 @@ class CheckoutIntegrationTests {
         service.webhook("synthetic authorization event","synthetic signature");
         service.webhook("synthetic older event","synthetic signature");
         assertThat(jdbc.queryForObject("select count(*) from reservations",Integer.class)).isEqualTo(1);assertThat(captures).hasValue(1);
+    }
+    UUID saveFirstCard(){
+        var view=service.begin("buyer",UUID.randomUUID().toString(),new CheckoutInput(room,start,start.plusDays(2),null,true));
+        var c=store.get(view.id());String method="pm_synthetic_saved";
+        cards.put(method,new PaymentGateway.Card(method,c.customerId(),false,"visa","4242",12,2099));
+        var p=intents.get(c.intentId());
+        intents.put(p.id(),new PaymentGateway.Intent(p.id(),"requires_capture",p.amount(),"usd",false,p.checkoutId(),p.clientSecret(),false,0,c.customerId(),method));
+        assertThat(service.detail(c.id(),"buyer").stage()).isEqualTo("SUCCEEDED");
+        return savedMethods.mine("buyer").get(0).id();
+    }
+    CheckoutInput recurring(UUID method){return new CheckoutInput(room,start.plusDays(4),start.plusDays(6),method,false);}
+    @Test void explicitConsentSavesAuthorizedReferenceAndReusesWithoutCardInput(){
+        UUID method=saveFirstCard();
+        assertThat(savedMethods.mine("buyer").get(0).lastFour()).isEqualTo("4242");
+        assertThat(jdbc.queryForObject("select consent_version from saved_payment_methods",String.class)).isEqualTo("hu01-on-session-v1");
+        var next=service.begin("buyer",UUID.randomUUID().toString(),recurring(method));
+        assertThat(next.savedMethod()).isTrue();var c=store.get(next.id());
+        assertThat(c.providerMethodId()).isEqualTo("pm_synthetic_saved");state(c.intentId(),"requires_capture",false);
+        assertThat(service.detail(c.id(),"buyer").stage()).isEqualTo("SUCCEEDED");
+        assertThat(jdbc.queryForObject("select count(*) from reservations",Integer.class)).isEqualTo(2);
+        verify(gateway,times(1)).createCustomer(any());
+    }
+    @Test void noConsentDoesNotCreateCustomerOrSaveMethod(){
+        var c=begin();state(c.intentId(),"requires_capture",false);service.detail(c.id(),"buyer");
+        assertThat(savedMethods.mine("buyer")).isEmpty();verify(gateway,never()).createCustomer(any());
+        assertThat(jdbc.queryForObject("select count(*) from payment_profiles",Integer.class)).isZero();
+    }
+    @Test void consentChoiceCannotChangeWithSameIdempotencyKey(){
+        String key=UUID.randomUUID().toString();service.begin("buyer",key,input());
+        assertThatThrownBy(()->service.begin("buyer",key,new CheckoutInput(room,start,start.plusDays(2),null,true))).isInstanceOf(ApiException.class);
+    }
+    @Test void absentAndForeignSavedMethodsCannotCreateHold()throws Exception{
+        UUID method=saveFirstCard();
+        assertThatThrownBy(()->service.begin("other",UUID.randomUUID().toString(),recurring(method))).isInstanceOf(ApiException.class);
+        assertThatThrownBy(()->service.begin("buyer",UUID.randomUUID().toString(),recurring(UUID.randomUUID()))).isInstanceOf(ApiException.class);
+        assertThat(savedMethods.mine("other")).isEmpty();
+        var other=login("other");
+        mvc.perform(post("/api/checkouts").session(other).with(csrf()).header("Idempotency-Key",UUID.randomUUID().toString())
+            .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(recurring(method)))).andExpect(status().isForbidden());
+        mvc.perform(post("/api/payment-methods/"+method+"/revoke").session(other).with(csrf())).andExpect(status().isForbidden());
+        assertThat(jdbc.queryForObject("select count(*) from checkouts",Integer.class)).isEqualTo(1);
+    }
+    @Test void revokedAndExpiredMethodsDoNotReserveInventory(){
+        UUID method=saveFirstCard();var card=cards.get("pm_synthetic_saved");
+        cards.put(card.id(),new PaymentGateway.Card(card.id(),card.customerId(),false,card.brand(),card.lastFour(),1,2000));
+        assertThatThrownBy(()->service.begin("buyer",UUID.randomUUID().toString(),recurring(method))).isInstanceOf(ApiException.class);
+        assertThat(jdbc.queryForObject("select count(*) from checkouts where stage='FAILED'",Integer.class)).isEqualTo(1);
+        savedMethods.revoke("buyer",method);assertThat(savedMethods.mine("buyer")).isEmpty();
+        assertThatThrownBy(()->service.begin("buyer",UUID.randomUUID().toString(),recurring(method))).isInstanceOf(ApiException.class);
+    }
+    @Test void revocationPersistsEvenWhenProviderIsUnavailableAndRequiresCsrf()throws Exception{
+        UUID method=saveFirstCard();var buyer=login("buyer");
+        mvc.perform(post("/api/payment-methods/"+method+"/revoke").session(buyer)).andExpect(status().isForbidden());
+        assertThat(savedMethods.mine("buyer")).hasSize(1);
+        doThrow(new ApiException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,"Synthetic outage")).when(gateway).detach(anyString(),anyString());
+        mvc.perform(post("/api/payment-methods/"+method+"/revoke").session(buyer).with(csrf())).andExpect(status().isOk());
+        assertThat(savedMethods.mine("buyer")).isEmpty();
+        assertThat(jdbc.queryForObject("select detach_pending from saved_payment_methods",Boolean.class)).isTrue();
+    }
+    @Test void mismatchedProviderOwnerIsRejectedBeforeIntentCreation(){
+        UUID method=saveFirstCard();var card=cards.get("pm_synthetic_saved");
+        cards.put(card.id(),new PaymentGateway.Card(card.id(),"cus_someone_else",false,card.brand(),card.lastFour(),12,2099));
+        int before=intents.size();assertThatThrownBy(()->service.begin("buyer",UUID.randomUUID().toString(),recurring(method))).isInstanceOf(ApiException.class);
+        assertThat(intents).hasSize(before);
+    }
+    @Test void recurringDeclineDoesNotConfirmOrBlockNewAttempt(){
+        UUID method=saveFirstCard();var next=service.begin("buyer",UUID.randomUUID().toString(),recurring(method));
+        var c=store.get(next.id());state(c.intentId(),"requires_payment_method",true);
+        assertThat(service.detail(c.id(),"buyer").stage()).isEqualTo("FAILED");
+        assertThat(jdbc.queryForObject("select count(*) from reservations",Integer.class)).isEqualTo(1);
+        assertThat(service.begin("buyer",UUID.randomUUID().toString(),recurring(method)).stage()).isEqualTo("PENDING");
+    }
+    @Test void twoConcurrentRecurringRequestsCannotHoldSameInventory()throws Exception{
+        UUID method=saveFirstCard();var pool=Executors.newFixedThreadPool(2);var barrier=new CyclicBarrier(2);
+        try {Callable<Boolean> attempt=()->{barrier.await();try{service.begin("buyer",UUID.randomUUID().toString(),recurring(method));return true;}catch(ApiException e){assertThat(e.getStatus().value()).isEqualTo(409);return false;}};
+            var a=pool.submit(attempt);var b=pool.submit(attempt);assertThat(List.of(a.get(20,TimeUnit.SECONDS),b.get(20,TimeUnit.SECONDS))).containsExactlyInAnyOrder(true,false);
+        }finally{pool.shutdownNow();}
+        assertThat(jdbc.queryForObject("select count(*) from checkouts where stage='PENDING'",Integer.class)).isEqualTo(1);
+    }
+    @Test void failedInitialPaymentNeverActivatesConsentedMethod(){
+        var view=service.begin("buyer",UUID.randomUUID().toString(),new CheckoutInput(room,start,start.plusDays(2),null,true));
+        var c=store.get(view.id());state(c.intentId(),"requires_payment_method",true);
+        assertThat(service.detail(c.id(),"buyer").stage()).isEqualTo("FAILED");
+        assertThat(savedMethods.mine("buyer")).isEmpty();
+        assertThat(jdbc.queryForObject("select count(*) from reservations",Integer.class)).isZero();
     }
 }

@@ -2,6 +2,10 @@ package app.mnhotel.hotel_reservation_system_backend.checkout;
 
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.Refund;
+import com.stripe.model.Customer;
+import com.stripe.model.PaymentMethod;
+import java.util.HashMap;
+import java.util.UUID;
 import com.stripe.net.RequestOptions;
 import com.stripe.net.Webhook;
 import com.stripe.exception.StripeException;
@@ -26,16 +30,48 @@ public class StripeGateway implements PaymentGateway {
     }
     private Intent view(PaymentIntent p) {
         return new Intent(p.getId(), p.getStatus(), p.getAmount(), p.getCurrency(), Boolean.TRUE.equals(p.getLivemode()),
-            p.getMetadata().get("checkout_id"), p.getClientSecret(), p.getLastPaymentError() != null);
+            p.getMetadata().get("checkout_id"), p.getClientSecret(), p.getLastPaymentError() != null,p.getAmountReceived(),p.getCustomer(),p.getPaymentMethod());
     }
     // Do not propagate provider exceptions, response bodies, client secrets or card details to logs/clients.
     private ApiException unavailable() { return new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
         "No se pudo verificar el pago. Puedes consultar o reintentar el mismo checkout."); }
     public Intent create(CheckoutStore.Checkout c) {
-        try { return view(PaymentIntent.create(Map.of("amount", c.amount(), "currency", "usd",
-            "payment_method_types", List.of("card"), "capture_method", "manual",
-            "metadata", Map.of("checkout_id", c.id().toString())), options(c.id() + ":create"))); }
+        try {
+            Map<String,Object> params=new HashMap<>(Map.of("amount", c.amount(), "currency", "usd",
+                "payment_method_types", List.of("card"), "capture_method", "manual",
+                "metadata", Map.of("checkout_id", c.id().toString())));
+            if(c.customerId()!=null)params.put("customer",c.customerId());
+            if(c.providerMethodId()!=null)params.put("payment_method",c.providerMethodId());
+            if(c.saveMethod())params.put("setup_future_usage","on_session");
+            return view(PaymentIntent.create(params, options(c.id() + ":create")));
+        }
         catch (StripeException e) { throw unavailable(); }
+    }
+    public String createCustomer(UUID profileId) {
+        try {return Customer.create(Map.of("metadata",Map.of("hotel_profile_id",profileId.toString())),options(profileId+":customer")).getId();}
+        catch(StripeException e){throw unavailable();}
+    }
+    public Card card(String id) {
+        try {
+            var p=PaymentMethod.retrieve(id,options(null));
+            if(!"card".equals(p.getType())||p.getCard()==null)throw new ApiException(HttpStatus.CONFLICT,"Método no disponible; utiliza una tarjeta nueva");
+            var card=p.getCard();
+            return new Card(p.getId(),p.getCustomer(),Boolean.TRUE.equals(p.getLivemode()),card.getBrand(),card.getLast4(),card.getExpMonth().intValue(),card.getExpYear().intValue());
+        }catch(StripeException e){
+            if(e.getStatusCode()!=null&&(e.getStatusCode()==404||e.getStatusCode()==400))
+                throw new ApiException(HttpStatus.CONFLICT,"Método no disponible; utiliza una tarjeta nueva");
+            throw unavailable();
+        }
+    }
+    public void detach(String id,String expectedCustomer) {
+        try {
+            var method=PaymentMethod.retrieve(id,options(null));
+            if(method.getCustomer()==null)return;
+            if(Boolean.TRUE.equals(method.getLivemode())||!expectedCustomer.equals(method.getCustomer()))
+                throw new ApiException(HttpStatus.CONFLICT,"El método ya no corresponde al perfil autorizado");
+            method.detach(Map.of(),options("detach:"+id));
+        }
+        catch(StripeException e){throw unavailable();}
     }
     public Intent retrieve(String id) {
         try { return view(PaymentIntent.retrieve(id, options(null))); }
