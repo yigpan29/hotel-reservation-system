@@ -31,6 +31,14 @@ No hay autorización para reparar bases de desarrollo.
 - Demos anteriores y sus datos conservados; nueva demo combinada en 127.0.0.1:55177.
   Ningún push a main/base ni merge de PR realizado por el agente.
 
+## Cierre de antecedentes aprobado por Eric
+
+Los PR #13 y #14 se cerraron sin fusionar, conservando sus ramas e historial.
+La revisión de HU-01/HU-04 continúa en el PR #18 en borrador hacia main.
+No hubo retarget ni merge hacia base; sus conflictos se documentaron y Eric
+eligió conservar la entrega combinada. HU-05 permanece fuera de esta entrega;
+la coordinación V7/V8 y notificaciones sigue pendiente para despliegue compartido.
+
 ## Diagnóstico histórico (conservado)
 
 ## Referencias comprobadas

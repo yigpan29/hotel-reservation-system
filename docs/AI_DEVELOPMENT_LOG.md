@@ -985,3 +985,25 @@ anteriores y listener original intactos. Se retiró solamente el proyecto
 hotel-reservation-system-eric-security-test usado para la repetición, no las
 demos. La demo combinada permanece en http://127.0.0.1:55177 con su propio
 listener sandbox; claves y logs privados bajo .local, fuera de Git.
+
+
+## 2026-10-28 — Cierre autorizado de PR sustituidos (refs #5, #6)
+
+Eric confirmó mantener una sola entrega de HU-01/HU-04 mediante PR #18 hacia
+main y cerrar los antiguos #13/#14. Antes se comprobó que ambos seguían abiertos,
+en borrador hacia base y con conflictos; base sigue existiendo y puede recibir
+PR. Se expusieron las alternativas de usar el combinado hacia base o actualizar
+los originales, sin ejecutar retarget ni merge. Eric cambió esa indicación por
+el cierre de ambos como sustituidos y pidió documentarlo en el informe.
+
+Resultado comprobado: #13 CLOSED y #14 CLOSED, ambos con mergedAt null.
+#18 OPEN, draft=true, base=main y sin auto-merge. No se ejecutó ningún comando
+de merge, no se borraron ramas ni se modificaron bases de datos o código de
+aplicación. El historial y las revisiones de los PR cerrados siguen disponibles.
+La decisión de entrega sin esperar HU-05 no cambia el pendiente de coordinar
+V7/V8 y notificaciones antes de un despliegue compartido.
+
+Se añadió una fila a docs/INFORME_ERIC.md, con decisión humana en primera persona.
+Esta actualización es documental: diff/whitespace y estados remotos comprobados;
+no se repiten pagos ni pruebas de aplicación por este cambio. Las validaciones
+previas corresponden a la implementación verificada, no a nuevas ejecuciones.
