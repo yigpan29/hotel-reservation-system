@@ -167,3 +167,21 @@ Demostración adicional requerida: primera compra con/sin casilla, método visib
 solo para el dueño, segunda compra sin formulario de tarjeta, autenticación 3DS,
 rechazo recurrente sin reserva extra, retirada y fallback a tarjeta nueva.
 No se afirma demostrada esta secuencia mientras falten credenciales/evidencia sandbox.
+
+## Evidencia adicional del 28/10/2026
+
+Suite integrada: 79 Maven + 1 compatibilidad, frontend y 12/12 Playwright. Tras
+corregir el parámetro retirado de Stripe, seis pruebas del adaptador final y
+siete escenarios API contra Stripe sandbox pasaron. [Resumen sin secretos](evidencias/hu01/stripe-sandbox-results.json).
+El adaptador usa [allowed_payment_method_types](https://docs.stripe.com/api/payment_intents/create),
+restringido a card. El overlay usa perfil isolated: requiere el catálogo ya
+creado por la suite y evita repetir su cargador demo al reiniciar.
+
+Reproducción opcional, solo después de la suite y con el overlay sandbox activo:
+`python tests/isolated/stripe-sandbox-smoke.py --confirm-stripe-sandbox`.
+Para el checkout separado utilizado durante integración, añadir
+`--base-url http://127.0.0.1:55174 --env-file RUTA_PRIVADA/.env.stripe-test`.
+Genera únicamente usuarios y compras sintéticas; verifica tres capturas y sus
+reembolsos, sin PAN/CVV ni claves en reportes. No ejecutar contra desarrollo.
+El recorrido Stripe.js real, la resolución interactiva de 3DS y la entrega
+real de webhooks quedan pendientes; esta prueba usa confirmación API.

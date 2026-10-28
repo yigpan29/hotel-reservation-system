@@ -729,5 +729,46 @@ reconocen, pero sus filas dependientes bloquean borrar el lote; otras relaciones
 desconocidas siguen requiriendo revisión. Se añadieron pruebas de ambos casos.
 HU-05 sigue fuera de base: no se aplica V5 a entornos compartidos antes de V4,
 no se activa outOfOrder y la notificación posterior a captura queda pendiente.
-Validaciones de esta actualización: pendientes de ejecución; no se heredan como
-evidencia los conteos de la versión anterior ni se declaran pagos reales probados.
+Validaciones de esta actualización: harness completo satisfactorio el 28/10/2026,
+con 79 pruebas Maven y una adicional de compatibilidad; TypeScript/lint/build
+correctos y 12/12 Playwright. Incluye instalación limpia, adopción legacy,
+preservación de datos/secuencias y guardas de URL (rechazos esperados 1 y 64).
+Se ejecutó el mismo harness en el proyecto independiente
+hotel-reservation-system-hu01-test, con imágenes propias y puerto 55174, para
+no mezclar su esquema con la demo HU-04. Solo cambiaron las rutas de ejecución,
+el nombre de proyecto, los tags de imágenes y el puerto; se conservaron las
+aserciones y controles de aislamiento. Reportes privados:
+.local/isolated/20261028-051728/. Los cuatro casos UI de checkout siguen usando
+dobles; no se presentan como una prueba de Stripe.js contra el proveedor.
+
+### Corrección detectada por Stripe real y verificación sandbox
+
+Las claves privadas autentican. La primera prueba de checkout real devolvió 503:
+el SDK recibió HTTP 400 porque `payment_method_types` ya no se admite. Los dobles
+no habían detectado este error. Tras consultar el contrato oficial de creación de
+PaymentIntent, se cambió a `allowed_payment_method_types`, manteniendo solo card
+y captura manual. Se añadió una regresión del límite SDK; las seis pruebas del
+adaptador final pasaron sin red. La suite completa de 79+1 y 12 Playwright pasó
+antes de esa corrección puntual; no se afirma una nueva ejecución conjunta de 80.
+
+También se corrigió el overlay sandbox: al recrear backend debe usar perfil
+isolated, sin volver a ejecutar el cargador demo de una sola ejecución. Se
+verificó el arranque saludable conservando el catálogo existente.
+
+Con el adaptador final, siete escenarios contra api.stripe.com sandbox pasaron:
+primer checkout sin guardado e idempotencia; guardado con consentimiento explícito;
+segunda compra con método guardado real; rechazo sin reserva pagada y liberación
+de inventario; requires_action 3DS sin confirmación prematura; cancelación con
+reembolsos verificados; revocación del método. Se confirmaron y capturaron tres
+pagos sandbox y se verificaron sus tres reembolsos. No se movió dinero real.
+Evidencia sin secretos en docs/evidencias/hu01/stripe-sandbox-results.json.
+
+La confirmación de esos pagos se hizo por API con PaymentMethods oficiales de
+prueba, no mediante Stripe.js en navegador. Completar el desafío 3DS y recibir
+un webhook real desde Stripe siguen pendientes de revisión manual. No se
+presentan firmas locales ni dobles como entrega real de webhooks. Se conserva
+el script opt-in tests/isolated/stripe-sandbox-smoke.py para reproducir el núcleo
+de esos casos con confirmación explícita, claves test y URL local restringida.
+
+No se modificó PostgreSQL de desarrollo ni se fusionó ningún PR. V4 de HU-05
+aún no está en base: V5 no se aplica en entornos compartidos antes de V4.
