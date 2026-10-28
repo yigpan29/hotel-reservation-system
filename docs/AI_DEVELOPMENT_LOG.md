@@ -641,3 +641,31 @@ idéntico, aserciones de secuencia V1-V6, precondición administrativa actualiza
 y CI para PR a main. La rama de integración ya no contiene el V3 duplicado.
 Esto no aplica ni repara historiales existentes y no implementa por sí solo el
 checkout múltiple aprobado. La corrección se revisa en un PR independiente.
+
+## Corrección aprobada del duplicado V3 en main — 28/10/2026
+
+Eric eligió mantener capacidad V3, huéspedes V4 y tipo V5, moviendo solamente
+el historial a V6. Se preparó fix/main-historial-v6 desde main 7c892ea para
+revisión humana, sin modificar main/base directamente. El SQL de historial no
+se editó: ambas rutas tienen objeto Git 096797d1c532395ead95d7e3d01ca884e864226c.
+La prueba de integridad exige las seis versiones exactas y la compatibilidad
+Flyway exige current=6. La CI se amplía a PR de main con los mismos permisos y
+jobs existentes, dado que el PR #15 no reportó checks por el filtro previo.
+
+Se documenta la diferencia entre instalación nueva/adopción legacy y bases que
+ya registraron V3 de historial; estas últimas requieren una adopción aprobada
+por separado. No se ejecuta repair ni se alteran historiales o datos reales.
+Los números de las ramas HU-05/HU-01 todavía deben coordinarse al integrarlas.
+El harness completo terminó correctamente en el proyecto tmpfs independiente
+hotel-reservation-system-migration-v6-test: 55 pruebas Maven y una adicional de
+compatibilidad, 114 pruebas Vitest, TypeScript/lint/build y 11/11 Playwright.
+También pasaron instalación nueva V1-V6, adopción legacy desde V1, preservación
+de datos/secuencias, repetición, validate, arranque limpio y guardas de destino.
+Las negativas esperadas fueron 1 sin baseline y 64 para URLs incorrectas.
+Reportes privados: .local/isolated/20261028-113516/.
+Para conservar las demos activas se usó una copia local del mismo harness que
+solo cambia raíz, nombre de proyecto, tags de imágenes y puerto 55176; mantiene
+las aserciones y controles de aislamiento. La sintaxis del script administrativo
+se comprobó sin ejecutarlo. No se afirma que estas pruebas adopten una base que
+ya tenga V3 de historial. Evidencia pública sin datos personales:
+docs/evidencias/migrations-v6/resultado.json.

@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-28",
+  "base_commit": "7c892ea",
+  "history_sql_git_object": "096797d1c532395ead95d7e3d01ca884e864226c",
+  "versions": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6"
+  ],
+  "status": "passed",
+  "maven_tests": 55,
+  "flyway_compatibility_tests": 1,
+  "vitest_tests": 114,
+  "playwright_tests": 11,
+  "typescript": "passed",
+  "lint": "passed",
+  "build": "passed",
+  "fresh_install_and_legacy_v1_adoption": "passed",
+  "data_and_sequences_preserved": "passed",
+  "project": "hotel-reservation-system-migration-v6-test",
+  "limitation": "Does not validate adoption of an existing database whose V3 was tracked_demonstration_history. No development database was changed."
+}
