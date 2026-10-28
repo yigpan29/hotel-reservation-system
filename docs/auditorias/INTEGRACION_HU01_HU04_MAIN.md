@@ -128,3 +128,20 @@ de migraciones, adaptar el checkout de grupo, ejecutar la suite aislada completa
 volver a consultar main/PR activos y preparar un PR único en borrador hacia main
 que enlace #5/#6. No cerrar los originales hasta acordar su sustitución. Ampliar
 la CI para PR hacia main y ejecutar también las pruebas Vitest de HU-02/HU-06.
+
+## Actualización aprobada: historial V6
+
+Eric eligió conservar capacidad V3, huéspedes V4 y tipo V5, moviendo solamente
+historial a V6. La corrección está en fix/main-historial-v6 y sus commits de
+código ya están incorporados en esta rama de integración. El SQL del historial
+permanece idéntico. El duplicado descrito arriba sigue siendo el diagnóstico
+histórico de main 7c892ea; desaparece en las ramas que incluyen esta corrección.
+
+Las bases existentes con V3 de historial todavía requieren adopción revisada:
+el cambio de nombre no transforma sus registros automáticamente. No se ha
+modificado ninguna base de desarrollo ni se ha ejecutado repair. V4 de HU-05 y
+V5 de checkout siguen pendientes de coordinar; no se renumeraron aquí.
+
+La ejecución completa de pruebas de la corrección se registra en su AI log y
+PR independiente. No se declara por ello implementado el checkout múltiple ni
+verificada la futura combinación con HU-05.

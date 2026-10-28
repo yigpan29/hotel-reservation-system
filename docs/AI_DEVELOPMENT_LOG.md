@@ -633,3 +633,11 @@ pierda la selección de huéspedes. Ningún PR se fusionó ni se cerró.
 
 Plan revisable en docs/auditorias/INTEGRACION_HU01_HU04_MAIN.md. Las demos y sus
 bases no se modifican; solo se usa y detiene un PostgreSQL auxiliar de auditoría.
+
+### Numeración aprobada por Eric para continuar la integración
+
+Se incorporaron los commits de fix/main-historial-v6: historial V6 con SQL
+idéntico, aserciones de secuencia V1-V6, precondición administrativa actualizada
+y CI para PR a main. La rama de integración ya no contiene el V3 duplicado.
+Esto no aplica ni repara historiales existentes y no implementa por sí solo el
+checkout múltiple aprobado. La corrección se revisa en un PR independiente.
