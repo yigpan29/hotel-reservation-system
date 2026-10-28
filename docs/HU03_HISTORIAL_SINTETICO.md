@@ -39,7 +39,7 @@ filas del lote modificadas. No creó otra cuenta ni duplicó reservas.
 Exige destino exacto, confirmación, perfil no productivo y respaldo verificado en
 desarrollo. El script admite únicamente el datasource esperado de `hotel-bd`.
 
-V3 añade `reservation_demo_batches` y `reservation_demo_items`: UUID de lote,
+V6 añade `reservation_demo_batches` y `reservation_demo_items`: UUID de lote,
 código único, algoritmo `WEEKEND_HISTORY_V1`, fecha, semilla, período, propietario
 técnico, estado y huellas de las filas creadas. Cada reserva tiene una asociación
 única al lote y una clave de escenario. No se reutilizan campos de negocio para

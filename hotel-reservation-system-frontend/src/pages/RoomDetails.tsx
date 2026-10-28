@@ -4,11 +4,19 @@ import { api, message } from '../api'
 import DateRangeModal from '../components/DateRangeModal'
 import RoomGroup from '../components/RoomGroup'
 import ReservationSummaryModal from '../components/ReservationSummaryModal'
+import StayBar from '../components/StayBar'
 import { useAuth } from '../auth-context'
 import { useLoad } from '../useLoad'
 import { guestLabel, guestsLabel, roomsLabel, totalGuests } from '../guests'
 import { addRoom, chooseType, maxRooms, readRooms, removeRoom, roomsGuests, roomsParam, selectionIssue, selectionTotal, setRoomGuests, typeNamed, type RoomGroup as Group } from '../selection'
 import { dateAfter, money, nightsBetween, type Allocation, type Hotel, type Room, type Reservation } from '../types'
+import Badge from '../ui/Badge'
+import Button from '../ui/Button'
+import { buttonClass } from '../ui/button-class'
+import Notice from '../ui/Notice'
+import { Loading } from '../ui/Loading'
+import { ArrowRightIcon, CheckCircleIcon, MapPinIcon, PlusIcon, StarIcon } from '../ui/Icons'
+
 interface Stay { start: string; end: string }
 const isDay = (value: string | null): value is string => value !== null && /^\d{4}-\d{2}-\d{2}$/.test(value)
 const readStay = (params: URLSearchParams): Stay | null => {
@@ -24,6 +32,7 @@ const validationAdvice = (problem: string) => {
   if (problem.includes('ya no admite')) return 'Elige un tipo con mayor capacidad o reduce la cantidad de huéspedes.'
   return 'Agrega otra habitación o reduce la cantidad de huéspedes para continuar.'
 }
+
 export default function RoomDetails() {
   const [params, setParams] = useSearchParams(), path = useParams(), location = useLocation(), { user } = useAuth()
   const id = path.id || params.get('id') || ''
@@ -77,53 +86,134 @@ export default function RoomDetails() {
       setSummary(false); setDone(created); setStay(null); setParams({ id })
     } catch (failure) { setSummaryError(message(failure)); setRevision(value => value + 1) } finally { setBusy(false) }
   }
-  if (!id) return <section className="page"><h1 className="title">Selecciona un hotel</h1><Link to="/products" className="action">Ver hoteles</Link></section>
+
+  if (!id) return <section className="page">
+    <h1 className="title">Selecciona un hotel</h1>
+    <p className="subtitle">Abre un hotel del catálogo para ver sus habitaciones y su disponibilidad.</p>
+    <Link to="/products" className={buttonClass('primary', 'md', 'mt-6')}>Ver hoteles<ArrowRightIcon className="h-4 w-4" /></Link>
+  </section>
+
   return <section className="page">
-    {hotel.loading && <p role="status">Cargando hotel…</p>}{hotel.error && <p role="alert" className="notice-error">{hotel.error}</p>}
-    {hotel.data && <><p className="text-orange-700">{hotel.data.location}</p><h1 className="title">{hotel.data.name}</h1><p className="mb-6">{hotel.data.description}</p></>}
-    {done && <div ref={success} role="status" className="notice-success">
-      <h2 className="text-xl font-bold">¡Tu reserva está lista!</h2><p>Tu estadía ha sido confirmada. ¡Te esperamos!</p>
-      <p className="mt-2">{done.length === 1 ? 'Número de reserva: ' : 'Números de reserva: '}<strong>{done.map(reservation => '#' + reservation.id).join(', ')}</strong> · <Link className="underline" to="/my-reservations">Ver mis reservas</Link></p>
-      <button type="button" className="action mt-3" onClick={() => setDone(null)}>Hacer otra reserva</button>
-    </div>}
-    {!done && <form aria-label="Buscar disponibilidad" className="panel flex flex-wrap items-end gap-6" onSubmit={event => event.preventDefault()}>
-      <div>
-        <span className="block text-sm text-gray-600">Fechas</span>
-        <button type="button" className="rounded bg-orange-100 text-orange-700 px-5 py-2 mt-1 hover:bg-orange-200 disabled:opacity-50" disabled={!rooms.data?.length} onClick={() => setPicking(true)}>{stay ? 'Cambiar fechas' : 'Seleccionar fechas'}</button>
+    <nav aria-label="Ruta" className="mb-5 flex items-center gap-2 text-sm text-ink-500">
+      <Link to="/products" className="rounded transition-colors duration-160 hover:text-ink-800">Hoteles</Link>
+      <span aria-hidden="true">/</span>
+      <span className="truncate font-medium text-ink-700">{hotel.data?.name || 'Hotel'}</span>
+    </nav>
+
+    {hotel.loading && <Loading label="Cargando hotel…" />}
+    {hotel.error && <Notice tone="error" role="alert" title="No se pudo cargar el hotel">{hotel.error}</Notice>}
+    {hotel.data && <header>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <p className="flex items-center gap-1.5 text-sm font-medium text-brand-700">
+          <MapPinIcon className="h-4 w-4" />{hotel.data.location}
+        </p>
+        {hotel.data.rating !== null && <Badge tone="brand">
+          <StarIcon className="h-3.5 w-3.5 fill-brand-400" />{hotel.data.rating.toFixed(1)} / 5
+        </Badge>}
       </div>
-      {stay && <p className="text-gray-700">{stay.start} → {stay.end} · {nights === 1 ? '1 noche' : nights + ' noches'}</p>}
-      {stay && <p className="text-gray-700">{roomsLabel(booked.length)} · {guestLabel(guests)} · {guestsLabel(totalGuests(guests))}</p>}
-    </form>}
-    {rooms.error && <p role="alert" className="notice-error">{rooms.error}</p>}
-    {rooms.loading && <p role="status">Cargando habitaciones…</p>}
-    {!rooms.loading && !stay && !done && <p className="panel mt-6">Elige tus fechas para ver las habitaciones disponibles.</p>}
-    {stay && <section className="mt-8" aria-label="Habitaciones disponibles">
-      <h2 className="text-2xl font-bold mb-4">Habitaciones disponibles</h2>
-      {planError && <p role="alert" className="notice-error">{planError}</p>}
-      {!current && !planError && <p role="status">Buscando disponibilidad…</p>}
-      {current && <p role="status" className="mb-4 text-gray-700">{roomsLabel(booked.length)} para {guestsLabel(totalGuests(guests))}: hay {roomsLabel(current.availableRooms)} disponibles entre el {stay.start} y el {stay.end}.</p>}
-      {validationProblem && <div role="alert" className="notice-error mt-5" aria-live="polite">
-        <p className="font-semibold">Revisa la configuración de habitaciones y huéspedes</p>
-        <p className="mt-1">{validationProblem}</p>
-        <p className="mt-2"><strong>Sugerencia:</strong> {validationAdvice(validationProblem)}</p>
-      </div>}
-      {current && booked.map((_room, index) => <RoomGroup key={index} types={types} rooms={booked} index={index} nights={nights}
-        onGuests={value => remember(stay, setRoomGuests(booked, index, types, value))}
-        onType={value => remember(stay, chooseType(booked, index, value))}
-        onRemove={() => remember(stay, removeRoom(booked, index))} />)}
-      {current && <div className="panel mt-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          {!validationProblem && <p role="status">{issue || 'Todo listo: ' + roomsLabel(booked.length) + ' para ' + guestsLabel(totalGuests(guests)) + '.'}</p>}
-          <p className="text-gray-700">Precio total: <strong>{money(total)}</strong></p>
+      <h1 className="title mt-2">{hotel.data.name}</h1>
+      <p className="subtitle">{hotel.data.description}</p>
+    </header>}
+
+    {done && <div ref={success} role="status" className="mt-8 overflow-hidden rounded-2xl border border-success-200 bg-success-50 p-6 animate-enter-up">
+      <div className="flex gap-4">
+        <span aria-hidden="true" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-success-600 shadow-card">
+          <CheckCircleIcon className="h-6 w-6" />
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-xl font-semibold text-success-700">¡Tu reserva está lista!</h2>
+          <p className="mt-1 text-sm text-success-700">Tu estadía ha sido confirmada. ¡Te esperamos!</p>
+          <p className="mt-3 text-sm text-ink-700">
+            {done.length === 1 ? 'Número de reserva: ' : 'Números de reserva: '}
+            <strong className="font-semibold text-ink-900">{done.map(reservation => '#' + reservation.id).join(', ')}</strong>
+          </p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Link to="/my-reservations" className={buttonClass('primary', 'md')}>Ver mis reservas<ArrowRightIcon className="h-4 w-4" /></Link>
+            <Button variant="secondary" onClick={() => setDone(null)}>Hacer otra reserva</Button>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <button type="button" className="rounded border border-orange-600 text-orange-700 px-5 py-2 disabled:opacity-40" disabled={booked.length >= maxRooms}
-            onClick={() => remember(stay, addRoom(booked))}>Agregar habitación</button>
-          {user ? <button type="button" className="action" disabled={Boolean(issue)} onClick={() => { setSummary(true); setSummaryError('') }}>Continuar al resumen</button>
-            : <Link className="action inline-block" to="/login" state={{ from: location.pathname + location.search }}>Iniciar sesión para reservar</Link>}
+      </div>
+    </div>}
+
+    {!done && <div className="mt-8">
+      <StayBar stay={stay} nights={nights} rooms={booked.length} guests={guests}
+        disabled={!rooms.data?.length} onPick={() => setPicking(true)} />
+    </div>}
+
+    {rooms.error && <Notice tone="error" role="alert" className="mt-6" title="No se pudieron cargar las habitaciones">{rooms.error}</Notice>}
+    {rooms.loading && <Loading label="Cargando habitaciones…" className="mt-6" />}
+
+    {stay && <div className="mt-8 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <section aria-label="Habitaciones disponibles" className="min-w-0">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="section-title">Habitaciones disponibles</h2>
+          {current && <p role="status" className="text-sm text-ink-500">
+            {roomsLabel(current.availableRooms)} libres del {stay.start} al {stay.end}
+          </p>}
         </div>
-      </div>}
-    </section>}
+
+        {planError && <Notice tone="error" role="alert" className="mt-5" title="No se pudo calcular la disponibilidad">{planError}</Notice>}
+        {!current && !planError && <Loading label="Buscando disponibilidad…" className="mt-5" />}
+
+        {validationProblem && <Notice tone="error" role="alert" aria-live="polite" className="mt-5"
+          title="Revisa la configuración de habitaciones y huéspedes">
+          <p>{validationProblem}</p>
+          <p className="mt-2"><strong className="font-semibold">Sugerencia:</strong> {validationAdvice(validationProblem)}</p>
+        </Notice>}
+
+        {current && <div className="mt-5 space-y-6">
+          {booked.map((_room, index) => <RoomGroup key={index} types={types} rooms={booked} index={index} nights={nights}
+            onGuests={value => remember(stay, setRoomGuests(booked, index, types, value))}
+            onType={value => remember(stay, chooseType(booked, index, value))}
+            onRemove={() => remember(stay, removeRoom(booked, index))} />)}
+        </div>}
+      </section>
+
+      {current && <aside aria-label="Resumen de la selección" className="lg:sticky lg:top-24">
+        <div className="panel">
+          <h2 className="text-base font-semibold text-ink-900">Tu selección</h2>
+          <dl className="mt-4 space-y-2.5 text-sm">
+            <div className="flex justify-between gap-3">
+              <dt className="text-ink-500">Habitaciones</dt>
+              <dd className="font-medium text-ink-900">{roomsLabel(booked.length)}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-ink-500">Huéspedes</dt>
+              <dd className="text-right font-medium text-ink-900">{guestLabel(guests)}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-ink-500">Noches</dt>
+              <dd className="font-medium text-ink-900 tabular">{nights}</dd>
+            </div>
+          </dl>
+
+          <div className="mt-4 border-t border-ink-100 pt-4">
+            <p className="flex items-baseline justify-between gap-3">
+              <span className="text-sm text-ink-500">Precio total:</span>
+              <strong className="text-xl font-bold text-ink-900 tabular">{money(total)}</strong>
+            </p>
+            {!validationProblem && <p role="status" className="mt-2 text-sm text-ink-500">
+              {issue || 'Todo listo: ' + roomsLabel(booked.length) + ' para ' + guestsLabel(totalGuests(guests)) + '.'}
+            </p>}
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {user
+              ? <Button full size="lg" disabled={Boolean(issue)} onClick={() => { setSummary(true); setSummaryError('') }}>Continuar al resumen</Button>
+              : <Link className={buttonClass('primary', 'lg', 'w-full')} to="/login" state={{ from: location.pathname + location.search }}>Iniciar sesión para reservar</Link>}
+            <Button variant="secondary" full disabled={booked.length >= maxRooms}
+              onClick={() => remember(stay, addRoom(booked))}>
+              <PlusIcon className="h-4 w-4" />Agregar habitación
+            </Button>
+            {booked.length >= maxRooms && <p className="hint text-center">Máximo {maxRooms} habitaciones por reserva.</p>}
+          </div>
+        </div>
+        <p className="mt-3 px-1 text-xs leading-relaxed text-ink-400">
+          Podrás cancelar tu reserva desde «Mis reservas» mientras la estadía no haya comenzado.
+        </p>
+      </aside>}
+    </div>}
+
     {picking && rooms.data && <DateRangeModal subtitle={'Disponibilidad de ' + (hotel.data?.name || 'el hotel')} rooms={rooms.data} initialStart={stay?.start || ''} initialEnd={stay?.end || ''} focus={stay?.start || dateAfter(1)}
       onConfirm={applyDates} onCancel={() => setPicking(false)} />}
     {summary && stay && current && user && <ReservationSummaryModal hotelName={hotel.data?.name || ''} types={types} rooms={booked} start={stay.start} end={stay.end} busy={busy} error={summaryError}
