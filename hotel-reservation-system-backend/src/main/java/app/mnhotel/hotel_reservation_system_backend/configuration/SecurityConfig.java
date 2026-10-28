@@ -27,7 +27,7 @@ public class SecurityConfig {
           .securityContext(c->c.securityContextRepository(context))
           .authorizeHttpRequests(a->a
             .requestMatchers("/api/auth/csrf","/api/auth/register","/api/auth/login","/api/health","/error").permitAll()
-            .requestMatchers(HttpMethod.GET,"/api/hotels/**","/api/rooms/availability").permitAll()
+            .requestMatchers(HttpMethod.GET,"/api/hotels/**","/api/rooms/availability","/api/rooms/allocation","/api/rooms/*/occupancy").permitAll()
             .requestMatchers("/api/admin/**").hasRole("ADMIN")
             .requestMatchers("/api/**").authenticated().anyRequest().denyAll())
           .exceptionHandling(e->e.authenticationEntryPoint((req,res,ex)->{res.setStatus(401);res.setContentType("application/json");json.writeValue(res.getWriter(),Map.of("message","Inicia sesión para continuar"));})

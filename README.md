@@ -1,7 +1,9 @@
 # Hotel Reservation System · HOTEL MN
 
 Aplicación universitaria funcional para buscar hoteles, consultar habitaciones
-por fecha, registrar una cuenta, iniciar sesión, confirmar y cancelar reservas.
+por fecha, indicar cuántos adultos y niños viajan para que el sistema calcule y
+valide las habitaciones necesarias, registrar una cuenta, iniciar sesión,
+confirmar y cancelar reservas.
 El administrador gestiona hoteles/habitaciones y consulta o cancela reservas.
 
 React 18 + TypeScript + Vite + Tailwind; Java 17 + Spring Boot 3.3.2,

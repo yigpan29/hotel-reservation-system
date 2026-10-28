@@ -52,22 +52,59 @@ El registro asigna siempre USER, aunque se envíe `role: ADMIN`.
 | GET `/hotels/{id}/rooms` | Habitaciones activas del hotel |
 | GET `/hotels/{id}/rooms?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD` | Habitaciones con `available` y `totalPrice` calculados |
 | GET `/rooms/availability?hotelId=...&startDate=...&endDate=...` | Solo habitaciones disponibles |
+| GET `/rooms/allocation?hotelId=...&startDate=...&endDate=...&adults=2&children=0` | Habitaciones mínimas, disponibilidad real y opciones válidas para esos huéspedes |
+| GET `/rooms/{id}/occupancy?from=YYYY-MM-DD&to=YYYY-MM-DD` | Rangos ocupados de una habitación activa, para el calendario |
 
 Hotel: `{id,name,location,description,rating,active}`. Habitación:
-`{id,hotelId,hotelName,roomNumber,type,pricePerNight,active,available,totalPrice}`.
+`{id,hotelId,hotelName,roomNumber,type,pricePerNight,capacity,active,available,totalPrice}`.
 Sin fechas, `available` y `totalPrice` son null: no simulan disponibilidad global.
+`capacity` es la capacidad declarada de la habitación (columna de V3, 1–10).
+
+El calendario de disponibilidad consume `/rooms/{id}/occupancy`:
+`{roomId,hotelId,hotelName,roomNumber,type,pricePerNight,active,from,to,occupied}`.
+Cada elemento de `occupied` es `{startDate,endDate}` con entrada inclusiva y salida
+exclusiva, y proviene solo de reservas CONFIRMED: la noche `endDate` queda libre.
+Sin parámetros cubre doce meses desde hoy; `to` debe ser posterior a `from` y el
+rango máximo por consulta es de 400 días. No expone usuarios ni identificadores
+de reserva, solo las fechas que bloquean inventario.
+
+## Huéspedes y habitaciones necesarias
+
+`/rooms/allocation` responde
+`{hotelId,startDate,endDate,nights,adults,children,guests,maxRoomCapacity,minimumRooms,
+availableRooms,availableCapacity,feasible,message,types}`. `adults` por defecto 2 y
+`children` 0; se exige al menos 1 adulto, se rechazan cantidades negativas y el máximo es
+20 adultos y 20 niños. No se piden datos personales de los huéspedes: se registran en el
+check-in. Las fechas siguen las mismas reglas que una reserva (entrada no pasada, salida
+posterior, 365 noches como máximo).
+
+`minimumRooms` es **solo una referencia**: el mínimo teórico según la mayor capacidad entre los
+tipos reservables del hotel (`maxRoomCapacity`). `availableRooms` y `availableCapacity`
+describen las unidades libres durante **toda** la estadía. `types` agrupa esas unidades por
+tipo, de la tarifa más baja a la más alta: `{type,capacity,available,pricePerNight,totalPrice}`,
+donde `available` son las unidades libres de ese tipo y `totalPrice` su precio por la estadía.
+Un tipo sin unidades libres no aparece. El servidor **no elige ni combina habitaciones**: el
+cliente configura cada habitación con sus huéspedes y elige un tipo para cada una. Cada habitación necesita al menos un adulto, así que nunca hacen
+falta más habitaciones que adultos. Si no es posible alojar a todos, `feasible` es false y
+`message` explica el motivo, por ejemplo: «No hay habitaciones suficientes para alojar a 4
+huéspedes. Se requieren al menos 2 habitaciones, pero solo hay 1 disponible para las fechas
+seleccionadas».
 
 ## Reservas
 
 | Método y ruta | Acceso / resultado |
 |---|---|
-| POST `/reservations` | Autenticado, CSRF; `{roomId,startDate,endDate}` → 201 reserva |
+| POST `/reservations` | Autenticado, CSRF; `{roomId,startDate,endDate}` → 201 reserva, sin huéspedes declarados |
+| POST `/reservations/group` | Autenticado, CSRF; `{hotelId,rooms:[{type,adults,children}],startDate,endDate}` → 201 lista de reservas |
 | GET `/reservations/me?page=0&size=20` | Solo reservas propias |
 | GET `/reservations/{id}` | Propietario o ADMIN |
 | POST `/reservations/{id}/cancel` | Propietario o ADMIN, CSRF; actualiza y conserva fila |
 
-Reserva: `{id,hotelId,hotelName,roomId,roomNumber,userId,username,startDate,endDate,
-status,nightlyPrice,totalPrice,createdAt,cancelledAt}`. Las fechas persistidas
+Reserva: `{id,hotelId,hotelName,roomId,roomNumber,roomType,userId,username,startDate,endDate,
+status,adults,children,nightlyPrice,totalPrice,createdAt,cancelledAt}`. `roomType` es el tipo de la
+habitación al reservar y, como la tarifa, no cambia si luego se reclasifica la habitación
+(null si la habitación no tenía tipo). Las reservas anteriores a V5 se rellenaron con el tipo
+actual de su habitación. Las fechas persistidas
 son timestamps ISO sin zona por compatibilidad. Las nuevas estancias usan medianoche
 de las fechas enviadas; entrada inclusiva y salida exclusiva. El reloj de negocio
 y los nuevos registros de creación/cancelación usan America/Panama.
@@ -82,6 +119,18 @@ cancelar una reserva CONFIRMED hasta el día de entrada inclusive; una cancelaci
 repetida es idempotente y conserva su primer timestamp. Reservas ya iniciadas en
 días anteriores y estados legacy desconocidos devuelven 409 al cancelar.
 No hay borrado físico, pagos, checkout ni edición de fechas en esta versión.
+
+`/reservations/group` recibe una entrada por cada habitación que pidió el cliente, con sus
+huéspedes ya configurados y el tipo elegido para ellos: crea una reserva por habitación y
+guarda esos huéspedes tal cual, sin volver a repartirlos. El servidor asigna la unidad
+concreta de cada tipo, de la tarifa más baja a la más alta. Antes de confirmar valida de
+nuevo las fechas, que el hotel y sus habitaciones estén activos, que el tipo exista y admita
+a ese grupo, que queden tantas unidades libres como habitaciones se pidieron de ese tipo y
+que sigan libres durante toda la estadía, bloqueando cada fila antes de insertar. Devuelve
+400 si la petición es inválida (sin adultos, cantidades negativas, tipo inexistente o un
+grupo que no cabe en su tipo) y 409 si un tipo se agotó o una unidad acaba de reservarse.
+Cada habitación lleva al menos un adulto, así que ningún niño queda solo. `adults`/`children`
+quedan en null en las reservas creadas por `POST /reservations` y en las filas anteriores a V4.
 
 Confirmar bloquea la fila de habitación (`SELECT FOR UPDATE`) dentro de la
 transacción y consulta solapamientos antes de insertar. Dos estancias consecutivas
@@ -102,7 +151,10 @@ la prueba usa PostgreSQL real y dos transacciones/hilos distintos.
 
 Nombres/ubicación/descripción obligatorios, máximo 255; rating opcional 0–5.
 Número de habitación obligatorio, máximo 50 y único por hotel; tipo obligatorio,
-máximo 100; tarifa entera no negativa. No hay endpoints DELETE. Desactivar un
+máximo 100; tarifa entera no negativa. La capacidad la fija el tipo con el mismo
+vocabulario y los mismos valores que la migración V3 (Individual 1, Doble y Matrimonial 2,
+Deluxe 3, Familiar y Suite 4; cualquier otro tipo, 2), así que guardar una habitación
+alinea su capacidad con su tipo y el formulario no la pide por separado. No hay endpoints DELETE. Desactivar un
 hotel/habitación impide nuevas reservas y conserva relaciones e historial.
 
 Listados paginados: `{content,number,totalPages,totalElements}`, size 1–100.
