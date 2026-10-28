@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import AvailabilityCalendar from './AvailabilityCalendar'
 import type { OccupiedRange, Room } from '../types'
 
-const room = (id: number): Room => ({ id, hotelId: 1, hotelName: 'Hotel', roomNumber: String(100 + id), type: 'Doble', pricePerNight: 80, active: true, available: null, totalPrice: null })
+const room = (id: number): Room => ({ id, hotelId: 1, hotelName: 'Hotel', roomNumber: String(100 + id), type: 'Doble', pricePerNight: 80, capacity: 2, active: true, available: null, totalPrice: null })
 const stay = (startDate: string, endDate: string): OccupiedRange => ({ startDate, endDate })
 
 /** Simula GET /rooms/{id}/occupancy con las reservas que se indiquen por habitación. */
