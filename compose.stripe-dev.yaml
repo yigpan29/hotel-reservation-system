@@ -1,0 +1,10 @@
+# Overlay local para ver el checkout Stripe SANDBOX sobre compose.yaml.
+# Las claves viven en .env.stripe-test (ignorado por git); este archivo no las contiene.
+# Uso: docker compose --env-file .env --env-file .env.stripe-test -f compose.yaml -f compose.stripe-dev.yaml up -d backend
+services:
+  backend:
+    environment:
+      HOTEL_CHECKOUT_ENABLED: 'true'
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:?Defina STRIPE_PUBLISHABLE_KEY en .env.stripe-test}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:?Defina STRIPE_SECRET_KEY en .env.stripe-test}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?Defina STRIPE_WEBHOOK_SECRET en .env.stripe-test}

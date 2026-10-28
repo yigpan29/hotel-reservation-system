@@ -26,7 +26,6 @@ class IsolatedFlywayCompatibilityTests {
         assertThat(flyway.getConfiguration().isBaselineOnMigrate()).isFalse();
         assertThat(flyway.getConfiguration().isCleanDisabled()).isTrue();
         assertThat(flyway.info().current().getVersion().toString()).isEqualTo("8");
-
         assertThat(flyway.info().pending()).isEmpty();
         flyway.validate();
         try (var connection = flyway.getConfiguration().getDataSource().getConnection()) {

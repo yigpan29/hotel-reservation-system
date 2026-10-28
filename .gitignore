@@ -4,6 +4,7 @@
 # Configuración privada. Solo se versionan ejemplos sin secretos.
 .env
 .env.*
+env.stripe-test
 !.env.example
 !**/.env.example
 

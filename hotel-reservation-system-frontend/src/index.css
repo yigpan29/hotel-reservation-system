@@ -2,17 +2,215 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================================
+   Sistema de diseño HOTEL MN · tokens
+   Una sola fuente de verdad para color, tipografía, radios, sombras y curvas de
+   animación. Los componentes usan estos tokens (vía Tailwind) y nunca valores
+   sueltos, para que la identidad visual se mantenga coherente en todo el sistema.
+   ========================================================================== */
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  /* Canales RGB (sin rgb()) para que Tailwind pueda aplicar opacidades: bg-brand-600/20.
+     Marca: cobre cálido, heredado del naranja original pero legible sobre blanco. */
+  --brand-50: 253 245 239;
+  --brand-100: 250 232 218;
+  --brand-200: 243 207 178;
+  --brand-300: 233 174 130;
+  --brand-400: 221 138 82;
+  --brand-500: 207 109 51;
+  --brand-600: 184 87 38;
+  --brand-700: 150 67 31;
+  --brand-800: 120 55 28;
+  --brand-900: 95 46 25;
 
-  /*color-scheme: light dark;
-  color: rgba(37, 37, 37, 0.87);
-  background-color: #f3f3f3;*/
-  background-color: whitesmoke;
+  /* Neutros con una pizca de calidez, para que el blanco no se sienta clínico. */
+  --ink-25: 251 250 249;
+  --ink-50: 247 246 244;
+  --ink-100: 239 237 234;
+  --ink-200: 226 223 218;
+  --ink-300: 205 200 193;
+  --ink-400: 163 157 148;
+  --ink-500: 122 115 106;
+  --ink-600: 92 85 77;
+  --ink-700: 68 64 58;
+  --ink-800: 45 42 38;
+  --ink-900: 27 25 23;
+
+  /* Estados. Cada tono tiene fondo, borde y texto probados sobre superficie clara. */
+  --success-50: 236 253 243;
+  --success-200: 171 239 198;
+  --success-600: 14 122 77;
+  --success-700: 10 95 60;
+  --danger-50: 254 243 242;
+  --danger-200: 254 205 202;
+  --danger-600: 180 35 24;
+  --danger-700: 145 32 24;
+  --warning-50: 255 250 235;
+  --warning-200: 254 223 137;
+  --warning-700: 181 71 8;
+  --info-50: 239 246 255;
+  --info-200: 191 219 254;
+  --info-700: 23 92 211;
+
+  /* Curvas fuertes: las nativas de CSS son demasiado blandas para la interfaz. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color-scheme: light;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    /* El header es sticky: los saltos a un ancla no deben quedar debajo de él. */
+    scroll-padding-top: 5.5rem;
+  }
+  body {
+    @apply bg-ink-50 text-ink-800 antialiased;
+    line-height: 1.55;
+  }
+  h1, h2, h3, h4 {
+    @apply text-ink-900 font-semibold tracking-tight;
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  /* Un solo anillo de foco en todo el sistema, visible solo con teclado. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-white rounded-[6px];
+  }
+  ::selection {
+    @apply bg-brand-200 text-brand-900;
+  }
+  button:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+  /* Los importes y las cifras no deben bailar al actualizarse. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ============================================================================
+   Animaciones. Todas mueven solo transform y opacity, y respetan la
+   preferencia de movimiento reducido del sistema operativo.
+   ========================================================================== */
+@keyframes enter-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes panel-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+@layer components {
+  /* Entrada escalonada de una rejilla o lista: decorativa, nunca bloquea el uso. */
+  .stagger > * {
+    animation: enter-up 340ms var(--ease-out) backwards;
+  }
+  .stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger > *:nth-child(2) { animation-delay: 45ms; }
+  .stagger > *:nth-child(3) { animation-delay: 90ms; }
+  .stagger > *:nth-child(4) { animation-delay: 135ms; }
+  .stagger > *:nth-child(5) { animation-delay: 180ms; }
+  .stagger > *:nth-child(6) { animation-delay: 215ms; }
+  .stagger > *:nth-child(n + 7) { animation-delay: 240ms; }
+
+
+  /* --- Estructura ---------------------------------------------------------- */
+  .page { @apply max-w-page mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-10; }
+  .title { @apply text-display-sm sm:text-[2.375rem] sm:leading-[1.1] font-semibold text-ink-900 tracking-tight; }
+  .subtitle { @apply mt-2 text-ink-500 max-w-2xl; }
+  .section-title { @apply text-2xl font-semibold text-ink-900 tracking-tight; }
+
+  /* --- Superficies --------------------------------------------------------- */
+  .panel { @apply rounded-2xl bg-white p-5 sm:p-6 shadow-card border border-ink-200/80; }
+  .card { @apply rounded-2xl bg-white shadow-card border border-ink-200/80 overflow-hidden; }
+  .card-hover {
+    @apply transition-[transform,box-shadow] duration-220 ease-out-strong;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .card-hover:hover { @apply -translate-y-1 shadow-lift; }
+  }
+
+  /* --- Formularios --------------------------------------------------------- */
+  .label { @apply block text-sm font-medium text-ink-700; }
+  .hint { @apply block text-xs text-ink-500; }
+  .field {
+    @apply block w-full rounded-xl border border-ink-300 bg-white px-3.5 py-2.5 text-ink-900 shadow-[inset_0_1px_1px_rgb(27_25_23_/_0.03)]
+      placeholder:text-ink-400 transition-[border-color,box-shadow] duration-160 ease-out-strong
+      hover:border-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25 focus:ring-offset-0
+      disabled:bg-ink-50 disabled:text-ink-500;
+  }
+  /* El select nativo necesita su propia flecha para no verse ajeno al resto. */
+  select.field {
+    @apply appearance-none bg-no-repeat pr-10;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%237a736a' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+    background-position: right 0.75rem center;
+    background-size: 1.1rem;
+  }
+  textarea.field { @apply min-h-24 resize-y; }
+  .radio {
+    @apply h-[1.15rem] w-[1.15rem] shrink-0 border-ink-300 text-brand-600 accent-brand-600
+      transition-[border-color] duration-160 ease-out-strong focus-visible:ring-2 focus-visible:ring-brand-500;
+  }
+  .checkbox {
+    @apply h-[1.15rem] w-[1.15rem] rounded-[0.3rem] border-ink-300 text-brand-600 accent-brand-600
+      transition-[background-color,border-color] duration-160 ease-out-strong focus-visible:ring-2 focus-visible:ring-brand-500;
+  }
+
+  /* --- Piezas pequeñas ----------------------------------------------------- */
+  .chip { @apply inline-flex items-center gap-1.5 rounded-full bg-ink-100 px-2.5 py-1 text-xs font-medium text-ink-700; }
+  .link { @apply font-medium text-brand-700 underline decoration-brand-300 decoration-2 underline-offset-2 transition-colors duration-160 hover:text-brand-800 hover:decoration-brand-500; }
+
+  /* --- Tablas de datos (panel de administración) --------------------------- */
+  .data-table { @apply w-full border-collapse text-left text-sm; }
+  .data-table caption { @apply text-left text-sm text-ink-500 pb-3; }
+  .data-table th {
+    @apply bg-ink-50 px-3 py-2.5 font-semibold text-ink-700 border-b border-ink-200 whitespace-nowrap first:rounded-tl-lg last:rounded-tr-lg;
+  }
+  .data-table td { @apply px-3 py-2.5 border-b border-ink-100 text-ink-700 tabular; }
+  .data-table tbody tr:last-child td { @apply border-b-0; }
+
+  /* --- Carga --------------------------------------------------------------- */
+  .skeleton { @apply relative overflow-hidden rounded-xl bg-ink-100; }
+  .skeleton::after {
+    @apply absolute inset-0 bg-gradient-to-r from-transparent via-white/70 to-transparent;
+    content: '';
+    animation: shimmer 1.6s linear infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  /* Movimiento reducido no es cero animación: se conservan opacidad y color. */
+  *, *::before, *::after {
+    animation-duration: 180ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 120ms !important;
+  }
+  .stagger > * { animation-name: fade-in; animation-delay: 0ms !important; }
+  [data-motion='transform'] { transition-property: opacity !important; transform: none !important; }
 }

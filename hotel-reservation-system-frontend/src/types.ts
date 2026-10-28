@@ -14,3 +14,6 @@ export interface Page<T> { content: T[]; number: number; totalPages: number; tot
 export const money = (value: number | null) => value === null ? 'No registrado (legacy)' : new Intl.NumberFormat('es-PA', { style: 'currency', currency: 'USD' }).format(value)
 export const nightsBetween = (start: string, end: string) => Math.round((Date.parse(end) - Date.parse(start)) / 86400000)
 export const dateAfter = (days: number) => { const d = new Date(); d.setDate(d.getDate() + days); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-') }
+const monthsShort = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+/** '2026-11-10' (o un instante ISO) → '10 nov 2026'. Sin Date: la fecha ya viene en la zona del hotel. */
+export const prettyDay = (day: string) => { const [year, month, date] = day.slice(0, 10).split('-'); return Number(date) + ' ' + monthsShort[Number(month) - 1] + ' ' + year }

@@ -1,120 +1,63 @@
+import { Link } from 'react-router-dom'
+import { ArrowRightIcon, BedIcon, CalendarIcon, ChartIcon, ShieldIcon, SparkleIcon, UsersIcon } from '../ui/Icons'
+
+const pillars = [
+  { Glyph: CalendarIcon, title: 'Disponibilidad honesta', text: 'El calendario se construye con la ocupación real de cada habitación: una estadía solo se ofrece si una misma habitación está libre todas sus noches.' },
+  { Glyph: UsersIcon, title: 'Huéspedes sin trámites', text: 'Solo necesitamos cuántas personas van en cada habitación. Los datos personales se registran en el check-in, no en la web.' },
+  { Glyph: ShieldIcon, title: 'La reserva es tuya', text: 'Confirmas tu estadía en un paso y puedes cancelarla desde tu cuenta mientras no haya comenzado.' },
+]
+
+const capabilities = [
+  { Glyph: BedIcon, title: 'Catálogo por hotel', text: 'Hoteles, habitaciones y tarifas gestionados desde el panel de administración.' },
+  { Glyph: SparkleIcon, title: 'Reserva en grupo', text: 'Varias habitaciones en una sola operación, con su tipo y sus huéspedes.' },
+  { Glyph: ChartIcon, title: 'Previsión de demanda', text: 'Análisis informativo de noches reservadas para el equipo del hotel.' },
+]
 
 export default function AboutUs() {
-  return (
-    <section className="w-full py-2 md:py-2 lg:py-0 flex flex-col items-center justify-center">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 lg:gap-8 gap-4 max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-2">
-          <div className="rounded-lg bg-white shadow-sm p-5">
-            <div className="container grid max-w-6xl items-center gap-8 px-4 md:px-6 lg:grid-cols-2 lg:gap-16">
-            <div className="space-y-4">
-                <div className="space-y-2">
-                <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">About Our Hotels</h2>
-                <p className="text-muted-foreground md:text-xl">
-                    Discover the rich history and values behind our exceptional hotel experiences.
-                </p>
-                </div>
-                <div className="space-y-4">
-                <div>
-                    <h3 className="text-xl font-semibold">Our History</h3>
-                    <p className="text-muted-foreground">
-                    Founded in 1985, our hotel group has a legacy of providing unparalleled hospitality and luxury
-                    experiences to our guests. From our humble beginnings as a single property, we've grown to become a
-                    renowned leader in the industry, with a portfolio of award-winning hotels and resorts across the globe.
-                    </p>
-                </div>
-                <div>
-                    <h3 className="text-xl font-semibold">Our Mission</h3>
-                    <p className="text-muted-foreground">
-                    At the heart of our company is a commitment to delivering exceptional experiences that exceed our
-                    guests' expectations. We strive to create a welcoming and comfortable environment where our guests can
-                    relax, rejuvenate, and create lasting memories.
-                    </p>
-                </div>
-                <div>
-                    <h3 className="text-xl font-semibold">Our Values</h3>
-                    <p className="text-muted-foreground">
-                    Sustainability, innovation, and community are the core values that guide our operations. We are
-                    dedicated to reducing our environmental impact, investing in cutting-edge technologies, and fostering
-                    strong relationships with the local communities where our hotels are located.
-                    </p>
-                </div>
-                </div>
-            </div>
-            <div className="relative">
-                <img
-                src="https://www.blueprintrf.com/wp-content/uploads/2021/09/What-Does-a-Hotel-Management-Company-Do-.jpg"
-                width={800}
-                height={600}
-                alt="Hotel"
-                className="mx-auto aspect-video overflow-hidden rounded-xl object-cover object-center"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
-            </div>
-            </div>
-            <div className="container mt-12 grid max-w-6xl grid-cols-1 gap-8 px-4 md:grid-cols-2 md:gap-12 lg:grid-cols-3">
-            <div className="flex flex-col items-start space-y-4 rounded-lg border p-6 shadow-sm">
-                <div className="flex items-center space-x-4">
-                <img
-                    src="https://www.shutterstock.com/image-photo/adult-female-avatar-image-on-260nw-2419909023.jpg"
-                    width={48}
-                    height={48}
-                    alt="Avatar"
-                    className="h-12 w-12 rounded-full"
-                    style={{ aspectRatio: "48/48", objectFit: "cover" }}
-                />
-                <div>
-                    <h4 className="text-lg font-semibold">Jane Doe</h4>
-                    <p className="text-sm text-muted-foreground">Satisfied Customer</p>
-                </div>
-                </div>
-                <p className="text-muted-foreground">
-                "The service and attention to detail at this hotel was truly exceptional. I felt like royalty during my stay
-                and can't wait to return."
-                </p>
-            </div>
-            <div className="flex flex-col items-start space-y-4 rounded-lg border p-6 shadow-sm">
-                <div className="flex items-center space-x-4">
-                <img
-                    src="https://www.shutterstock.com/image-photo/adult-female-avatar-image-on-260nw-2419909023.jpg"
-                    width={48}
-                    height={48}
-                    alt="Avatar"
-                    className="h-12 w-12 rounded-full"
-                    style={{ aspectRatio: "48/48", objectFit: "cover" }}
-                />
-                <div>
-                    <h4 className="text-lg font-semibold">John Smith</h4>
-                    <p className="text-sm text-muted-foreground">Satisfied Customer</p>
-                </div>
-                </div>
-                <p className="text-muted-foreground">
-                "I've stayed at many hotels, but this one truly stands out. The attention to detail and commitment to
-                sustainability is truly impressive."
-                </p>
-            </div>
-            <div className="flex flex-col items-start space-y-4 rounded-lg border p-6 shadow-sm">
-                <div className="flex items-center space-x-4">
-                <img
-                    src="https://www.shutterstock.com/image-photo/adult-female-avatar-image-on-260nw-2419909023.jpg"
-                    width={48}
-                    height={48}
-                    alt="Avatar"
-                    className="h-12 w-12 rounded-full"
-                    style={{ aspectRatio: "48/48", objectFit: "cover" }}
-                />
-                <div>
-                    <h4 className="text-lg font-semibold">Sarah Lee</h4>
-                    <p className="text-sm text-muted-foreground">Satisfied Customer</p>
-                </div>
-                </div>
-                <p className="text-muted-foreground">
-                "This hotel has exceeded all of my expectations. The staff was incredibly attentive, and the facilities were
-                truly world-class. I can't wait to visit again."
-                </p>
-            </div>
-            </div>
-            </div>
-            </div>
-        
+  return <div className="space-y-12">
+    <section className="relative isolate overflow-hidden rounded-3xl bg-ink-900 px-6 py-12 text-white sm:px-10 sm:py-14">
+      <div aria-hidden="true" className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-brand-500/25 blur-3xl" />
+      <div aria-hidden="true" className="absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-brand-700/25 blur-3xl" />
+      <div className="relative max-w-2xl">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-300">Qué es HOTEL MN</p>
+        <h2 className="mt-4 text-display-sm font-semibold text-white">Reservar una estadía, sin pasos de más</h2>
+        <p className="mt-5 text-base leading-relaxed text-ink-200">
+          HOTEL MN es un sistema de reservas que muestra la disponibilidad tal como está: noche por noche y habitación
+          por habitación. Eliges fechas, armas tus habitaciones y confirmas. Nada más.
+        </p>
+        <Link to="/products" className="mt-7 inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white transition-[background-color,transform,border-color] duration-160 ease-out-strong hover:border-white/35 hover:bg-white/10 active:scale-[0.97]">
+          Ver los hoteles<ArrowRightIcon className="h-4 w-4" />
+        </Link>
+      </div>
     </section>
-  )
+
+    <section aria-labelledby="principios">
+      <h2 id="principios" className="section-title">Nuestros principios</h2>
+      <div className="stagger mt-6 grid gap-5 md:grid-cols-3">
+        {pillars.map(({ Glyph, title, text }) => <article key={title} className="panel">
+          <span aria-hidden="true" className="grid h-10 w-10 place-items-center rounded-xl bg-brand-50 text-brand-700"><Glyph className="h-5 w-5" /></span>
+          <h3 className="mt-4 text-base font-semibold text-ink-900">{title}</h3>
+          <p className="mt-2 text-sm leading-relaxed text-ink-500">{text}</p>
+        </article>)}
+      </div>
+    </section>
+
+    <section aria-labelledby="capacidades">
+      <h2 id="capacidades" className="section-title">Qué incluye el sistema</h2>
+      <ul className="stagger mt-6 grid gap-5 md:grid-cols-3">
+        {capabilities.map(({ Glyph, title, text }) => <li key={title} className="flex gap-4 rounded-2xl border border-ink-200/80 bg-white p-5 shadow-card">
+          <span aria-hidden="true" className="mt-0.5 text-brand-600"><Glyph className="h-5 w-5" /></span>
+          <div>
+            <h3 className="text-base font-semibold text-ink-900">{title}</h3>
+            <p className="mt-1.5 text-sm leading-relaxed text-ink-500">{text}</p>
+          </div>
+        </li>)}
+      </ul>
+    </section>
+
+    <p className="rounded-2xl border border-ink-200/80 bg-ink-25 p-5 text-sm leading-relaxed text-ink-500">
+      El inventario de hoteles y habitaciones de esta instalación es de demostración académica: los nombres, las tarifas
+      y parte del historial existen para probar el sistema y no corresponden a operaciones comerciales reales.
+    </p>
+  </div>
 }

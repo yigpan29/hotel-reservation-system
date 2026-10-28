@@ -1,16 +1,46 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useLoad } from '../useLoad'
 import type { Page, Reservation } from '../types'
 import ReservationList from '../components/ReservationList'
 import SavedMethodsPanel from '../components/SavedMethodsPanel'
-export default function MyReservations() {
-  const checkouts = useLoad<{ id: string; stage: string; paymentStatus: string; reservationId: number | null }[]>('/checkouts/me')
-  const [page, setPage] = useState(0), { data, loading, error, reload } = useLoad<Page<Reservation>>('/reservations/me?page=' + page)
-  return <section className="page"><h1 className="title">Mis reservas</h1>{loading && <p role="status">Cargando reservas…</p>}{error && <p role="alert" className="notice-error">{error}</p>}{data && <><ReservationList certificates reservations={data.content} refresh={() => { reload(); checkouts.reload() }} /><div className="flex gap-4 mt-6"><button disabled={page === 0} onClick={() => setPage(page - 1)}>Anterior</button><span>Página {page + 1} de {Math.max(data.totalPages, 1)}</span><button disabled={page + 1 >= data.totalPages} onClick={() => setPage(page + 1)}>Siguiente</button></div></>}
-    <SavedMethodsPanel />
-    {checkouts.error && <p role="alert">{checkouts.error}</p>}
-    {!!checkouts.data?.length && <section className="panel mt-6"><h2 className="text-xl font-bold">Últimos 20 checkouts de prueba</h2><p>Consulta cada checkout para verificar el pago o reembolso.</p>{checkouts.data.map(c => <p key={c.id}><Link className="underline" to={'/checkout/' + c.id}>Checkout {c.reservationId ? 'de reserva #' + c.reservationId : c.id.slice(0, 8)}</Link> · {c.stage} · {c.paymentStatus}</p>)}</section>}
-  </section>
+import CheckoutHistory, { type CheckoutSummary } from '../components/CheckoutHistory'
+import { Loading } from '../ui/Loading'
+import Notice from '../ui/Notice'
+import Pager from '../ui/Pager'
 
+/**
+ * Mis reservas: la lista manda y ocupa la columna principal; los métodos autorizados
+ * y los checkouts quedan al costado, donde se consultan sin competir con las estadías.
+ */
+export default function MyReservations() {
+  const checkouts = useLoad<CheckoutSummary[]>('/checkouts/me')
+  const [page, setPage] = useState(0), { data, loading, error, reload } = useLoad<Page<Reservation>>('/reservations/me?page=' + page)
+  const total = data?.totalElements ?? 0
+  return <section className="page">
+    <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+      <div>
+        <h1 className="title">Mis reservas</h1>
+        <p className="subtitle">Tus estadías confirmadas y canceladas, con su número de reserva y su precio pactado.</p>
+      </div>
+      {data && <p className="chip bg-white shadow-card">{total === 1 ? '1 reserva' : total + ' reservas'}</p>}
+    </header>
+
+    <div className="mt-8 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_21rem]">
+      <div className="min-w-0">
+        {loading && <Loading label="Cargando reservas…" />}
+        {error && <Notice tone="error" role="alert" title="No se pudieron cargar tus reservas">{error}</Notice>}
+        {data && <>
+          <ReservationList certificates reservations={data.content} refresh={() => { reload(); checkouts.reload() }} />
+          {data.totalPages > 1 && <Pager page={page} totalPages={data.totalPages} onPage={setPage}>
+            Página {page + 1} de {data.totalPages}
+          </Pager>}
+        </>}
+      </div>
+
+      <aside aria-label="Pagos y checkouts" className="space-y-5 lg:sticky lg:top-24">
+        <SavedMethodsPanel />
+        <CheckoutHistory checkouts={checkouts.data} loading={checkouts.loading} error={checkouts.error} />
+      </aside>
+    </div>
+  </section>
 }
