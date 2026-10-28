@@ -57,6 +57,15 @@ class ReservationCertificateTests {
             .andReturn().getResponse().getContentAsByteArray();
     }
     String text(byte[] bytes) throws Exception { try (var pdf = Loader.loadPDF(bytes)) { return new PDFTextStripper().getText(pdf); } }
+    void artifact(String name, byte[] bytes) throws Exception {
+        var directory = Path.of("/reports/hu04"); Files.createDirectories(directory);
+        Files.write(directory.resolve(name + ".pdf"), bytes);
+        try (var pdf = Loader.loadPDF(bytes)) {
+            var renderer = new PDFRenderer(pdf);
+            for (int i = 0; i < pdf.getNumberOfPages(); i++)
+                ImageIO.write(renderer.renderImageWithDPI(i, 110), "png", directory.resolve(name + (i == 0 ? "" : "-" + (i + 1)) + ".png").toFile());
+        }
+    }
     @Test void ownConfirmedPdfUsesStoredPricesAndDoesNotMutate() throws Exception {
         var before = jdbc.queryForObject("select row_to_json(r)::text from reservations r where id=?", String.class, id);
         jdbc.update("update rooms set price_per_night=999 where id=?", room);
@@ -64,18 +73,20 @@ class ReservationCertificateTests {
         assertThat(text(bytes)).contains("CONSTANCIA DE RESERVA", "CONFIRMADA", "Hotel Panamá", "Habitación: 101", "USD 85.00", "USD 170.00", "No es una factura fiscal ni un comprobante de pago.").doesNotContain("999.00", "CVV");
         assertThat(jdbc.queryForObject("select row_to_json(r)::text from reservations r where id=?", String.class, id)).isEqualTo(before);
         assertThat(jdbc.queryForObject("select count(*) from payments", Long.class)).isZero();
-        var directory = Path.of("/reports/hu04"); Files.createDirectories(directory);
-        Files.write(directory.resolve("constancia-confirmada.pdf"), bytes);
-        try (var pdf = Loader.loadPDF(bytes)) { ImageIO.write(new PDFRenderer(pdf).renderImageWithDPI(0, 110), "png", directory.resolve("constancia-confirmada.png").toFile()); }
+        artifact("constancia-confirmada", bytes);
     }
     @Test void cancellationIsExplicitWithSavedTimestamp() throws Exception {
         reservations.cancel(id, "pdf-owner", false);
-        assertThat(text(download())).contains("CANCELADA", "Cancelada: " + reservations.detail(id,"pdf-owner",false).cancelledAt().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
+        byte[] bytes = download();
+        assertThat(text(bytes)).contains("CANCELADA", "Cancelada: " + reservations.detail(id,"pdf-owner",false).cancelledAt().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
+        artifact("constancia-cancelada", bytes);
     }
     @Test void missingLegacyPricesAreNotInventedAndLongTextWraps() throws Exception {
         jdbc.update("update reservations set nightly_price=null,total_price=null where id=?", id);
         jdbc.update("update hotels set name=?", "Hotel ".repeat(30));
-        assertThat(text(download())).contains("No registrado");
+        byte[] bytes = download();
+        assertThat(text(bytes)).contains("No registrado");
+        artifact("constancia-texto-largo", bytes);
     }
     @Test void sessionAndOwnershipRequiredIncludingAdmin() throws Exception {
         mvc.perform(get("/api/reservations/" + id + "/certificate")).andExpect(status().isUnauthorized());
