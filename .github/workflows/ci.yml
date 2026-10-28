@@ -2,7 +2,7 @@ name: Hotel Reservation System CI
 
 on:
   pull_request:
-    branches: [base]
+    branches: [base, main]
   workflow_dispatch:
 
 permissions:
