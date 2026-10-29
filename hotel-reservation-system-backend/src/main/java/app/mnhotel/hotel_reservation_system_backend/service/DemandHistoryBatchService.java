@@ -98,7 +98,9 @@ public class DemandHistoryBatchService {
             select b.code,b.status,b.reference_date,b.history_start,b.history_end,b.reservation_count,
                 count(r.id) filter(where r.status='CONFIRMED') confirmed,count(r.id) filter(where r.status='CANCELLED') cancelled,
                 coalesce(sum(r.end_date::date-r.start_date::date) filter(where r.status='CONFIRMED'),0) nights,
-                count(distinct rm.hotel_id) hotels,count(r.id) filter(where md5(to_jsonb(r)::text)<>i.original_row_hash) modified
+                count(distinct rm.hotel_id) hotels,count(r.id) filter(where md5(to_jsonb(r)::text)<>i.original_row_hash
+                    and not (r.adults is null and r.children is null and r.room_type is null
+                        and md5((to_jsonb(r)-'adults'-'children'-'room_type')::text)=i.original_row_hash)) modified
             from reservation_demo_batches b left join reservation_demo_items i on i.batch_id=b.id left join reservations r on r.id=i.reservation_id left join rooms rm on rm.id=r.room_id
             where b.code=? group by b.id
             """,code);
