@@ -24,3 +24,9 @@ El harness usa un proyecto aislado, PostgreSQL 17 en tmpfs y credenciales sinté
 `run.ps1 -ProjectName hotel-reservation-system-test-<sufijo>` permite ejecutar pruebas sin retirar los recursos aislados anteriores. La espera de bootstrap usa la corrección ya propuesta en PR #19: 120 segundos reales, salud obligatoria y detección de proceso terminado.
 
 Los resultados efectivos de pruebas, merges y validación de desarrollo se registran al concluir la intervención. No se presentan los resultados históricos del PR como pruebas del código integrado.
+
+## Verificación de HU-05 sobre base
+
+Maven clean verify: 68 pruebas sin fallos; dos pruebas adicionales de Flyway/Boot/Hibernate sobre linajes canónico y HU-05 antiguo: satisfactorias. TypeScript, ESLint, 114 pruebas Vitest y Vite build: satisfactorios. Chromium: 12 escenarios de regresión aprobados y un fallo de sincronización en el test de recordatorio; el test corregido se repitió contra el mismo PostgreSQL y pasó (1/1), conservando la comprobación de unicidad y la vista real. La captura del fallo ya mostraba el recordatorio; el problema era contar inmediatamente después de iniciar la carga.
+
+Se conserva evidencia de los intentos iniciales: conteo antiguo de migraciones en una aserción, entorno de pruebas reutilizado con datos de demo y carrera de refresco en Playwright. No se eliminó ninguna validación funcional. La secuencia de migraciones se comprueba exactamente V1-V7.
