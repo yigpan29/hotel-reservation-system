@@ -57,6 +57,9 @@ class DemandHistoryBatchTests {
         String before=existing();var created=create("batch-reversal-test");
         assertThatThrownBy(()->batches.revert("batch-reversal-test","hotel_test","yes")).isInstanceOf(IllegalStateException.class);
         Long id=jdbc.queryForObject("select min(reservation_id) from reservation_demo_items",Long.class);
+        jdbc.update("insert into reservation_notifications(user_id,reservation_id,type,hotel_name,start_date,end_date,message,created_at) select user_id,id,'CONFIRMED','Synthetic',start_date::date,end_date::date,'Controlled dependency test',current_timestamp from reservations where id=?",id);
+        assertThatThrownBy(()->batches.revert("batch-reversal-test","hotel_test","REVERT_HISTORY_BATCH:batch-reversal-test")).isInstanceOf(IllegalStateException.class).hasMessageContaining("dependencias");
+        jdbc.update("delete from reservation_notifications where reservation_id=?",id);
         jdbc.update("insert into payments(reservation_id,amount,status) values (?,0,'SYNTHETIC_TEST')",id);
         assertThatThrownBy(()->batches.revert("batch-reversal-test","hotel_test","REVERT_HISTORY_BATCH:batch-reversal-test")).isInstanceOf(IllegalStateException.class).hasMessageContaining("dependencias");
         jdbc.update("delete from payments where reservation_id=?",id);

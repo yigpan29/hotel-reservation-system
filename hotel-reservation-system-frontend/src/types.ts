@@ -3,7 +3,7 @@ export interface Hotel { id: number; name: string; location: string; description
 export type HotelInput = Omit<Hotel, 'id'>
 export interface Room { id: number; hotelId: number; hotelName: string; roomNumber: string; type: string; pricePerNight: number; capacity: number; active: boolean; available: boolean | null; totalPrice: number | null }
 export type RoomInput = Pick<Room, 'hotelId' | 'roomNumber' | 'type' | 'pricePerNight' | 'active'>
-export interface Reservation { id: number; hotelId: number; hotelName: string; roomId: number; roomNumber: string; roomType: string | null; userId: number; username: string; startDate: string; endDate: string; status: string; adults: number | null; children: number | null; nightlyPrice: number | null; totalPrice: number | null; createdAt: string; cancelledAt: string | null }
+export interface Reservation { id: number; hotelId: number; hotelName: string; roomId: number; roomNumber: string; roomType: string | null; userId: number; username: string; startDate: string | null; endDate: string | null; status: string; adults: number | null; children: number | null; nightlyPrice: number | null; totalPrice: number | null; createdAt: string; cancelledAt: string | null }
 export interface OccupiedRange { startDate: string; endDate: string }
 export interface RoomOccupancy { roomId: number; hotelId: number; hotelName: string; roomNumber: string; type: string; pricePerNight: number | null; active: boolean; from: string; to: string; occupied: OccupiedRange[] }
 /** Un tipo de habitacion con su capacidad, su tarifa y las unidades libres durante toda la estadia. */

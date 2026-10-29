@@ -20,7 +20,7 @@ services:
       retries: 30
 
   backend-check:
-    image: hotel-reservation-system-test-backend-check
+    image: ${HOTEL_TEST_IMAGE_PREFIX:-hotel-reservation-system-test}-backend-check
     build:
       context: .
       dockerfile: tests/isolated/backend.Dockerfile
@@ -41,7 +41,7 @@ services:
       - ./.local/isolated-artifacts/backend:/reports
 
   frontend-check:
-    image: hotel-reservation-system-test-frontend-check
+    image: ${HOTEL_TEST_IMAGE_PREFIX:-hotel-reservation-system-test}-frontend-check
     build:
       context: .
       dockerfile: tests/isolated/frontend.Dockerfile
@@ -49,7 +49,7 @@ services:
     command: [sh, /checks/frontend-check.sh]
 
   flyway-check:
-    image: hotel-reservation-system-test-flyway-check
+    image: ${HOTEL_TEST_IMAGE_PREFIX:-hotel-reservation-system-test}-flyway-check
     build:
       context: .
       dockerfile: tests/isolated/flyway.Dockerfile
@@ -65,7 +65,7 @@ services:
     command: [hotel_test, info]
 
   bootstrap-check:
-    image: hotel-reservation-system-test-backend-check
+    image: ${HOTEL_TEST_IMAGE_PREFIX:-hotel-reservation-system-test}-backend-check
     command: [sh, /checks/bootstrap-check.sh]
     environment:
       SPRING_PROFILES_ACTIVE: isolated
@@ -80,7 +80,7 @@ services:
       postgres-test: {condition: service_healthy}
 
   backend-app:
-    image: hotel-reservation-system-test-backend-check
+    image: ${HOTEL_TEST_IMAGE_PREFIX:-hotel-reservation-system-test}-backend-check
     command: [java, -jar, target/hotel-reservation-system-backend-0.0.1-SNAPSHOT.jar]
     environment:
       SPRING_PROFILES_ACTIVE: isolated,demo
@@ -98,6 +98,8 @@ services:
       HOTEL_DEMO_USER_EMAIL: demo-user@example.invalid
       HOTEL_DEMO_USER_PASSWORD: Synthetic-user-123
       HOTEL_DEMAND_DATA_KIND: SYNTHETIC_DEMO
+      HOTEL_REMINDERS_ENABLED: 'true'
+      HOTEL_REMINDERS_CRON: '*/5 * * * * *'
     networks: [isolated]
     depends_on:
       postgres-test: {condition: service_healthy}
@@ -108,11 +110,11 @@ services:
       retries: 30
 
   frontend-app:
-    image: hotel-reservation-system-test-frontend-check
+    image: ${HOTEL_TEST_IMAGE_PREFIX:-hotel-reservation-system-test}-frontend-check
     command: [npm, run, dev, --, --host, 0.0.0.0, --port, "5173", --strictPort]
     environment:
       API_PROXY_TARGET: http://backend-app:3000
-    ports: ["127.0.0.1:55173:5173"]
+    ports: ["127.0.0.1:${HOTEL_TEST_FRONTEND_PORT:-55173}:5173"]
     networks: [isolated, web]
     depends_on:
       backend-app: {condition: service_healthy}
@@ -123,7 +125,7 @@ services:
       retries: 30
 
   e2e:
-    image: hotel-reservation-system-test-e2e
+    image: ${HOTEL_TEST_IMAGE_PREFIX:-hotel-reservation-system-test}-e2e
     build:
       context: .
       dockerfile: tests/isolated/e2e.Dockerfile

@@ -1,0 +1,8 @@
+# Explicitly opt in only after inspecting the old HU03 V3 / HU05 V4 lineage.
+# The regular compose.yaml keeps automatic migration disabled by default.
+services:
+  backend:
+    environment:
+      HOTEL_MIGRATIONS_ENABLED: 'true'
+      HOTEL_MIGRATIONS_LOCATIONS: classpath:db/legacy-hu05
+      HOTEL_REMINDERS_ENABLED: 'false'

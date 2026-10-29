@@ -1,6 +1,9 @@
 import './index.css'
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
+import NotificationProvider from './NotificationProvider'
+import Notifications from './pages/Notifications'
+import ReservationDetail from './pages/ReservationDetail'
 import AuthProvider from './AuthProvider'
 import { useAuth } from './auth-context'
 import Header from './components/Header'
@@ -44,7 +47,7 @@ function Guard({ children, admin = false }: { children: ReactNode; admin?: boole
 
 export default function App() {
   return <BrowserRouter>
-    <AuthProvider>
+    <AuthProvider><NotificationProvider>
       <div className="flex min-h-screen flex-col bg-ink-50">
         <Header />
         <main id="MainContent" className="flex-1">
@@ -57,6 +60,8 @@ export default function App() {
             <Route path="/login" element={<Auth />} />
             <Route path="/register" element={<Auth register />} />
             <Route path="/my-reservations" element={<Guard><MyReservations /></Guard>} />
+            <Route path="/notifications" element={<Guard><Notifications /></Guard>} />
+            <Route path="/reservations/:id" element={<Guard><ReservationDetail /></Guard>} />
             <Route path="/admin" element={<Guard admin><AdminPanel /></Guard>} />
             <Route path="/checkout/:id" element={<Guard><Checkout /></Guard>} />
             <Route path="*" element={<Blocked title="Página no encontrada"
@@ -67,6 +72,6 @@ export default function App() {
         </main>
         <Footer />
       </div>
-    </AuthProvider>
+    </NotificationProvider></AuthProvider>
   </BrowserRouter>
 }

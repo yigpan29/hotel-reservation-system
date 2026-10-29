@@ -265,5 +265,18 @@ Solo todas las líneas devueltas llevan a REFUNDED. Cancelación repetida y
 reconciliación concurrente reutilizan la misma operación; no duplican devolución.
 Sesión, propiedad, ADMIN y plazo de cancelación conservan sus reglas existentes.
 
-Migraciones activas de esta rama: V1–V6/V8. V7 se reserva para HU-05 y debe
-coordinarse antes de desplegar V8 a entornos compartidos; no está integrada aquí.
+Migraciones canónicas integradas: V1–V8, incluida HU-05 en V7. Para bases con HU-03 V3/HU-05 V4 ya aplicadas, consultar INTEGRACION_HU05_MAIN.md antes de migrar.
+
+
+## Notificaciones privadas HU-05
+
+GET /api/notifications?page=0&size=20 devuelve PageView del usuario autenticado,
+ordenado por createdAt e id descendentes. GET /api/notifications/unread-count
+responde {unreadCount}. POST /api/notifications/{id}/read y POST
+/api/notifications/read-all requieren sesión y CSRF, responden 204 y son idempotentes.
+No aceptan userId ni permiten a ADMIN leer avisos ajenos: esos IDs devuelven 404.
+DTO: id, reservationId, type, hotelName, startDate, endDate, message, createdAt,
+read y readAt. endDate puede ser nulo únicamente al notificar una cancelación
+legacy; no se inventan fechas. Tipos CONFIRMED, CANCELLED y CHECK_IN_REMINDER.
+No hay endpoints de generación, borrado o administración de avisos privados.
+Véase [HU05_NOTIFICACIONES.md](HU05_NOTIFICACIONES.md).

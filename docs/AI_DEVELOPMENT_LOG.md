@@ -1007,3 +1007,74 @@ Se añadió una fila a docs/INFORME_ERIC.md, con decisión humana en primera per
 Esta actualización es documental: diff/whitespace y estados remotos comprobados;
 no se repiten pagos ni pruebas de aplicación por este cambio. Las validaciones
 previas corresponden a la implementación verificada, no a nuevas ejecuciones.
+
+## 2026-10-27 — HU-05: notificaciones y recordatorios de reservas
+
+Herramienta: Codex CLI. Issue real verificada en GitHub: **#8**; rama
+`feat/hu-05-notificaciones-reservas`, origen/base remoto `9bd8d2e` (PR #7).
+Git estaba limpio. La auditoría enfocada se hizo en modo de solo lectura y se
+documentó antes de implementar en `docs/auditorias/HU05_NOTIFICACIONES.md`.
+Desarrollo: PostgreSQL17.11, V1–V3, 937 reservas/936 sintéticas, sin notificaciones.
+
+| Actividad | Solicitud y resultado verificado | Decisión humana |
+|---|---|---|
+| Auditoría/diseño | Reutilizar reserva, sesión, CSRF, DTOs, reloj y navegación; V4 aditiva sin backfill | Alcance solicitado en HU-05 |
+| Backend | Avisos atómicos en transacción de confirmación/cancelación; destinatario canónico, snapshots y FK; idempotencia UNIQUE(reserva,tipo) | No cambia reglas de reservas, pagos o disponibilidad |
+| Recordatorios | Mañana calendario Panamá, cron configurable 09:00, recuperación del día al arrancar; bloqueo y unicidad | Diseño explícito: reservas anteriores sin aviso HU-05 no se incorporan, aunque su entrada sea futura |
+| Privacidad | API propia sin userId; ADMIN no tiene excepción; lectura/contador/paginación con sesión y CSRF | Requisitos de la historia |
+| Frontend | Centro /notifications, contador, lectura, enlaces a reserva, carga/vacío/errores y móvil | Conserva naranja y navegación existente |
+| Compatibilidad HU-03 | V4 añade FK; guardián de reversión reconoce la nueva relación y rechaza lotes/usuarios con avisos dependientes | Operador respondió: «Autorizar ajuste mínimo de compatibilidad»; no autoriza cambiar fórmula ni datos |
+| Pruebas | 55 Maven + 1 compatibilidad, 10 Playwright, TypeScript/lint/build; dos escenarios HU-05 repetidos sin limpiar: 2/2 | Resultados ejecutados; no equivalen a revisión humana |
+| Desarrollo | Respaldo privado verificado y restaurado en base aislada; V4 probada en copia con ocho tablas idénticas | Operador respondió: «Autorizar V4 y actualización del backend» |
+| Aplicación autorizada | Solo V4 y recreación de backend con Flyway automático apagado; health UP, anon401, CSRF200, avisos0; 937 reservas/936 etiquetas intactas | Sin crear usuarios/reservas de prueba ni usar cuentas personales; PostgreSQL/frontend no reiniciados |
+
+Se conservaron huellas privadas por fila de usuarios, hoteles, habitaciones,
+reservas, pagos, reseñas y ambas tablas de seguimiento HU-03. Después de V4 y
+arranque del backend seguían idénticas; PostgreSQL mantuvo identidad y volumen.
+Respaldos, credenciales y huellas permanecen ignorados bajo `.local/private-hu05`.
+Ninguna migración V1/V2/V3 se modificó ni se repitió baseline.
+
+Correcciones reales de las propuestas/pruebas iniciales de IA:
+
+- Los dos primeros errores de JUnit eran el guardián de relaciones de reversión
+  HU-03 ante la FK nueva. Se hizo el ajuste mínimo autorizado y se añadió una
+  comprobación de rechazo cuando hay notificaciones dependientes.
+- La revisión encontró que exigir salida válida para todo aviso endurecía una
+  cancelación legacy que antes admitía salida nula. Se permitió esa instantánea
+  únicamente para CANCELLED y se probó en PostgreSQL; confirmación/recordatorio
+  siguen exigiendo fechas válidas. React también trata fechas legacy nulas sin fallar.
+- Repetir E2E sobre la misma base reveló que las habitaciones compartidas estaban
+  reservadas por una ejecución anterior. La prueba ahora prepara inventario único
+  por ejecución con un contexto ADMIN sintético separado. La repetición pasó.
+- La inspección de capturas detectó que el estilo común panel sobrescribía el fondo
+  de no leídas. Se corrigió la especificidad CSS y se repitieron frontend y Chromium.
+
+Cron real cada cinco segundos solo en backend-app aislado; JUnit usa Clock
+controlado y scheduler apagado. El fixture crea opt-in CONFIRMED para una reserva
+controlada; el programador, no el SQL, genera el recordatorio. Canceladas y reservas
+anteriores/sintéticas HU-03 no producen recordatorios; no hay cientos de avisos
+al instalar. Una notificación previa a una cancelación concurrente se conserva
+como historial; si cancelación gana el bloqueo no se genera recordatorio nuevo.
+
+Evidencias y comandos: `docs/HU05_NOTIFICACIONES.md`, capturas en
+`docs/evidencias/hu05`, reportes locales y artifacts del workflow de PR hacia base.
+No se introdujeron dependencias nuevas ni se deshabilitaron TypeScript, ESLint,
+Spring Security, CSRF o checks de error. No se implementaron HU-01/02/04, pagos,
+precios automáticos, segundo panel ni autenticación alternativa. HU-03 mantiene
+su fórmula/gráficos y datos; solo cambia el guardián expresamente autorizado.
+
+Las notificaciones son internas; no hay email/SMS/WhatsApp. El contador consulta
+cada 30 segundos y tras acciones/foco. No se recuperan recordatorios de días
+vencidos si el sistema estuvo apagado todo ese día. Revisión humana, aprobación
+e integración a base permanecen pendientes del equipo; no se hace merge automático.
+
+### HU-05: revisión final de concurrencia temporal
+
+Codex detectó por inspección una carrera posible al leer todas: un aviso nuevo
+podía tener created_at posterior a la hora capturada antes del UPDATE. Se usa
+CASE para read_at=max(reloj,created_at), conservando el primer read_at existente.
+La regresión nueva controla el reloj desplazado; 55 Maven y 1 compatibilidad
+pasaron. La repetición parcial previa falló solo por fixtures E2E en la base
+que catálogo esperaba vacía; se verificó ese requisito y se repitió, sin relajar
+ni cambiar las pruebas de catálogo. Logs de ambos intentos conservados bajo .local.
+No se cambia V4 ya aplicada: la corrección es del repositorio y sus pruebas.

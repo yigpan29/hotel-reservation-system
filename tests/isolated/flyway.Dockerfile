@@ -7,3 +7,5 @@ RUN mvn -B -ntp dependency:get -Dartifact=org.flywaydb:flyway-database-postgresq
     && mvn -B -ntp dependency:get -Dartifact=org.postgresql:postgresql:42.7.3
 COPY hotel-reservation-system-backend/src/main/resources/db/migration /checks/migrations
 COPY tests/isolated/flyway-check.sh /checks/flyway-check.sh
+
+COPY hotel-reservation-system-backend/src/main/resources/db/legacy-hu05 /checks/legacy-hu05

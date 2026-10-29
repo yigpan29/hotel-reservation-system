@@ -13,5 +13,6 @@ mvn -version
 trap 'if [ -d /reports ] && [ -d target/surefire-reports ]; then cp -r target/surefire-reports /reports/; fi' EXIT
 mvn -o -B -ntp clean verify
 cp /checks/IsolatedFlywayCompatibilityTests.java src/test/java/app/mnhotel/hotel_reservation_system_backend/
+cp /checks/LegacyHu05CompatibilityTests.java src/test/java/app/mnhotel/hotel_reservation_system_backend/
 mvn -o -B -ntp dependency:tree -Dincludes=org.flywaydb:*
-mvn -o -B -ntp -Dtest=IsolatedFlywayCompatibilityTests test
+mvn -o -B -ntp -Dtest=IsolatedFlywayCompatibilityTests,LegacyHu05CompatibilityTests test

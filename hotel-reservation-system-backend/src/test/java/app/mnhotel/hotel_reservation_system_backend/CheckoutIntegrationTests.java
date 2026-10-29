@@ -73,6 +73,7 @@ class CheckoutIntegrationTests {
         service.detail(c.id(),"buyer");assertThat(captures).hasValue(1);
         assertThat(jdbc.queryForObject("select total_price from reservations",Long.class)).isEqualTo(160L);
         assertThat(jdbc.queryForObject("select count(*) from payments",Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from reservation_notifications where type='CONFIRMED'",Integer.class)).isEqualTo(1);
     }
     @Test void sameKeyRetriesReuseIntentAndDifferentInputConflicts(){
         String key=UUID.randomUUID().toString();var a=service.begin("buyer",key,input());var b=service.begin("buyer",key,input());

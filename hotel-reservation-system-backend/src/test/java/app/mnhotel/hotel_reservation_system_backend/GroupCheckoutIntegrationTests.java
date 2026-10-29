@@ -70,7 +70,9 @@ class GroupCheckoutIntegrationTests {
         var c=begin();assertThat(c.amount()).isEqualTo(40000);assertThat(intents).hasSize(1);
         assertThat(jdbc.queryForObject("select count(*) from reservations",Integer.class)).isZero();
         jdbc.update("update rooms set price_per_night=999 where hotel_id=?",hotel);
-        var paid=pay(c);assertThat(paid.stage()).isEqualTo("SUCCEEDED");assertThat(paid.items()).hasSize(2).allSatisfy(i->assertThat(i.reservationId()).isNotNull());
+        var paid=pay(c);assertThat(paid.stage()).isEqualTo("SUCCEEDED");
+        service.detail(c.id(),"group-buyer");
+        assertThat(jdbc.queryForObject("select count(*) from reservation_notifications where type='CONFIRMED'",Integer.class)).isEqualTo(2);assertThat(paid.items()).hasSize(2).allSatisfy(i->assertThat(i.reservationId()).isNotNull());
         assertThat(jdbc.queryForList("select total_price from reservations order by room_id",Long.class)).containsExactly(160L,240L);
         assertThat(jdbc.queryForList("select room_type from reservations order by room_id",String.class)).containsExactly("Doble","Suite");
         assertThat(jdbc.queryForList("select adults from reservations",Integer.class)).containsOnly(2);
@@ -116,6 +118,7 @@ class GroupCheckoutIntegrationTests {
         assertThat(refunds.values()).singleElement().satisfies(r->assertThat(r.amount()).isEqualTo(16000));
         assertThat(jdbc.queryForObject("select status from reservations where id=?",String.class,paid.items().get(1).reservationId())).isEqualTo("CONFIRMED");
         store.cancelReservation(id,"group-buyer",false);service.detail(c.id(),"group-buyer");assertThat(refundCalls).hasValue(1);
+        assertThat(jdbc.queryForObject("select count(*) from reservation_notifications where type='CANCELLED'",Integer.class)).isEqualTo(1);
         assertThat(store.get(c.id()).paymentStatus()).isEqualTo("partially_refunded");
         store.cancelReservation(paid.items().get(1).reservationId(),"group-buyer",false);
         assertThat(service.detail(c.id(),"group-buyer").stage()).isEqualTo("REFUNDED");assertThat(refunds.values().stream().mapToLong(PaymentGateway.RefundResult::amount).sum()).isEqualTo(40000);
