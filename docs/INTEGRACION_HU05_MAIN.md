@@ -56,3 +56,5 @@ Después de validar el SQL en PostgreSQL aislado y con el código final incorpor
 ```
 
 El script rechaza otro destino/linaje, compara huellas y secuencias, compila, inicia solo backend con el overlay explícito legacy, espera salud 200/UP, compara los datos originales y vuelve a iniciar con compose.yaml ordinario (Flyway desactivado). No crea respaldo ni modifica credenciales o historial aplicado. El programador se desactiva únicamente durante la comparación para que los eventos nuevos no alteren las huellas verificadas. No depende de scripts privados sin versionar.
+
+La compatibilidad HU-03 también conserva las huellas originales anteriores a las columnas de huéspedes/tipo. La inspección acepta el JSON antiguo exclusivamente cuando los tres campos nuevos siguen NULL; cualquier cambio en los campos originales o en un campo nuevo se sigue detectando. Siete pruebas del servicio de lotes pasaron tras este ajuste, incluidos cambios deliberados de tipo e importe. No se reescriben las 936 etiquetas ni sus huellas almacenadas en desarrollo.
