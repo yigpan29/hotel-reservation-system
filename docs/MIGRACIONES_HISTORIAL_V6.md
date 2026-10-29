@@ -1,5 +1,7 @@
 # Corrección de numeración: historial HU-03 en V6
 
+> Registro histórico de la renumeración. La integración posterior incorpora V7 HU-05, V8 checkout y conserva las V3/V4 publicadas antiguas mediante un [linaje explícito de compatibilidad](INTEGRACION_HU05_MAIN.md), sin editar su historial.
+
 Eric aprobó el 28/10/2026 mantener capacidad en V3, huéspedes en V4 y tipo de
 habitación en V5, moviendo únicamente el historial de demostración a V6.
 

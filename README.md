@@ -55,9 +55,9 @@ El histórico básico de reservas se conserva para el funcionamiento del sistema
 
 Desde **Mis reservas** se puede descargar la constancia de una reserva propia, confirmada o cancelada. Incluye sus datos y precios pactados; no acredita pagos ni es factura fiscal. [Contrato, seguridad y demostración](docs/HU04_CONSTANCIA.md).
 
-La integración con HU-05 y las historias de main requiere revisión coordinada.
+HU-05 está integrada con el diseño actual: contador en navegación, centro privado y recordatorios de entrada.
 
 HU-01 conserva la selección múltiple de main: un pago confirma todas las
 habitaciones; cancelar una solicita únicamente su reembolso. Migraciones nuevas
-V8 checkout y V7 reservada para HU-05: coordinar antes de desplegar a una base
-compartida. La suite aislada prueba V1–V6/V8 sin modificar desarrollo.
+V7 notificaciones y V8 checkout completan la secuencia canónica V1–V8.
+Para bases existentes con HU-03 V3/HU-05 V4, usar el [procedimiento de compatibilidad](docs/INTEGRACION_HU05_MAIN.md); no activar Flyway canónico sobre ese historial.

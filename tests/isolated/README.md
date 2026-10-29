@@ -109,3 +109,16 @@ procedencia por filtros, rollback y reversión exclusiva con dependencias.
 Estas pruebas permanecen restringidas a hotel_test; no generan datos en desarrollo.
 El procedimiento explícito y separado de desarrollo se documenta en
 [Historial sintético HU-03](../../docs/HU03_HISTORIAL_SINTETICO.md).
+
+## HU-05: recordatorios y notificaciones
+
+El harness prueba también V4 y la ausencia de avisos retrospectivos al adoptar
+legacy. Los tests JUnit tienen el programador desactivado y un Clock controlable.
+Solo backend-app del proyecto aislado habilita cron cada cinco segundos para la
+prueba Chromium del recordatorio real. notifications-demo.sql se restringe a
+hotel_test/usuario hotel_test y no precarga el recordatorio: lo crea Spring Boot.
+Las pruebas de reservas/administración/HU-03 siguen ejecutándose completas.
+Véase [guía HU-05](../../docs/HU05_NOTIFICACIONES.md).
+## Integración definitiva
+
+La suite actual prueba V1-V8 canónicas y el linaje HU03 V3/HU05 V4 con compatibilidad V5/V8, sin alterar sus registros originales. `run.ps1 -ProjectName hotel-reservation-system-test-main-final -FrontendPort 55174` separa contenedores, imágenes y puerto de otras ejecuciones. PostgreSQL sigue siendo interno y usa tmpfs. No se necesita retirar recursos existentes.

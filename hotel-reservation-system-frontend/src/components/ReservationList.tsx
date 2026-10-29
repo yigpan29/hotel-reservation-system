@@ -41,14 +41,14 @@ export default function ReservationList({ reservations, refresh, admin = false, 
     <ul className="stagger space-y-4">
       {reservations.map(r => {
         const state = states[r.status] ?? { label: r.status, tone: 'neutral' as BadgeTone }
-        const start = r.startDate.slice(0, 10), end = r.endDate.slice(0, 10)
-        const nights = nightsBetween(start, end)
-        const cancellable = r.status === 'CONFIRMED' && start >= dateAfter(0)
+        const start = r.startDate?.slice(0, 10) ?? '', end = r.endDate?.slice(0, 10) ?? ''
+        const nights = start && end ? nightsBetween(start, end) : null
+        const cancellable = r.status === 'CONFIRMED' && Boolean(start) && start >= dateAfter(0)
         const facts: { Glyph: typeof CalendarIcon; label: string; value: ReactNode; note: string }[] = [
           {
-            Glyph: CalendarIcon, label: 'Estadía', note: nights === 1 ? '1 noche' : nights + ' noches',
+            Glyph: CalendarIcon, label: 'Estadía', note: nights === null ? '' : nights === 1 ? '1 noche' : nights + ' noches',
             // Cada fecha va entera: si no cabe, el salto ocurre junto a la flecha y no dentro de un día.
-            value: <><span className="whitespace-nowrap">{prettyDay(start)} →</span> <span className="whitespace-nowrap">{prettyDay(end)}</span></>,
+            value: <><span className="whitespace-nowrap">{start ? prettyDay(start) : 'Sin entrada registrada'} →</span> <span className="whitespace-nowrap">{end ? prettyDay(end) : 'Sin salida registrada'}</span></>,
           },
           { Glyph: BedIcon, label: 'Habitación', value: r.roomNumber + (r.roomType ? ' · ' + r.roomType : ''), note: '' },
           {

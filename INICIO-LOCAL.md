@@ -9,7 +9,9 @@ Administración → Previsión de demanda; ver [método y demo](docs/HU03_PREVIS
 Una base sin ocho semanas de referencia muestra un aviso, no estimaciones fabricadas.
 Se conserva el calendario de HU-02 y la selección de habitaciones y huéspedes de HU-06.
 Checkout confirma todas las habitaciones con un pago; cancelar una devuelve solo su importe.
-V8 checkout requiere coordinar V7 de HU-05 antes de un despliegue compartido.
+HU-05 incorpora notificaciones privadas y recordatorios en el diseño actual.
+Migraciones nuevas: V1–V8; las bases HU-03 V3/HU-05 V4 usan un linaje de compatibilidad explícito.
+Ver [integración y actualización de hotel-bd](docs/INTEGRACION_HU05_MAIN.md).
 
 ## Demostración aislada (opción recomendada para la presentación)
 

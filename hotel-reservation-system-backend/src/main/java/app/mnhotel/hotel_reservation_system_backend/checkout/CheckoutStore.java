@@ -22,6 +22,7 @@ public class CheckoutStore {
     public record Checkout(UUID id, long userId, long roomId, String requestKey, LocalDate start,
         LocalDate end, int nightly, long amount, String stage, String paymentStatus, String intentId,
         String refundId, Long reservationId, Instant expiresAt,boolean saveMethod,UUID savedMethodId,String customerId,String providerMethodId) {}
+    private final app.mnhotel.hotel_reservation_system_backend.service.NotificationService notifications;
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
     private final RoomRepository rooms;
@@ -32,7 +33,8 @@ public class CheckoutStore {
     private final com.fasterxml.jackson.databind.ObjectMapper json;
     public CheckoutStore(JdbcTemplate jdbc, PlatformTransactionManager manager, RoomRepository rooms,
         ReservationRepository reservations, AuthServiceImp users, ReservationServiceImp booking, UserRepository userRows,
-        com.fasterxml.jackson.databind.ObjectMapper json) {
+        com.fasterxml.jackson.databind.ObjectMapper json, app.mnhotel.hotel_reservation_system_backend.service.NotificationService notifications) {
+        this.notifications=notifications;
         this.jdbc=jdbc; this.tx=new TransactionTemplate(manager); this.rooms=rooms;
         this.reservations=reservations; this.users=users; this.booking=booking; this.userRows=userRows;
         this.json=json;
@@ -228,6 +230,7 @@ public class CheckoutStore {
                         r.setStartDate(c.start().atStartOfDay());r.setEndDate(c.end().atStartOfDay());r.setStatus("CONFIRMED");
                         r.setCreatedAt(RoomServiceImp.now());r.setNightlyPrice(item.nightly());r.setTotalPrice(item.amount()/100);
                         long booked=reservations.saveAndFlush(r).getId();
+                        notifications.event(r,"CONFIRMED");
                         jdbc.update("UPDATE checkout_items SET reservation_id=? WHERE checkout_id=? AND position=?",booked,id,item.position());
                         if(first==null)first=booked;
                     }
@@ -240,6 +243,7 @@ public class CheckoutStore {
                     r.setStartDate(c.start().atStartOfDay());r.setEndDate(c.end().atStartOfDay());r.setStatus("CONFIRMED");
                     r.setCreatedAt(RoomServiceImp.now());r.setNightlyPrice(c.nightly());r.setTotalPrice(c.amount()/100);
                     reservationId=reservations.saveAndFlush(r).getId();
+                    notifications.event(r,"CONFIRMED");
                 }
                 if(c.saveMethod()&&card!=null) {
                     jdbc.update("""
