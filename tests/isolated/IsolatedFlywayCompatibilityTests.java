@@ -25,7 +25,7 @@ class IsolatedFlywayCompatibilityTests {
             .contains("flyway-core-10.20.1.jar");
         assertThat(flyway.getConfiguration().isBaselineOnMigrate()).isFalse();
         assertThat(flyway.getConfiguration().isCleanDisabled()).isTrue();
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("5");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("7");
         assertThat(flyway.info().pending()).isEmpty();
         flyway.validate();
         try (var connection = flyway.getConfiguration().getDataSource().getConnection()) {

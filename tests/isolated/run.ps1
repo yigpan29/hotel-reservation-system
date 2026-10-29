@@ -1,8 +1,9 @@
-param([switch]$SkipBuild, [switch]$SkipE2E)
+param([switch]$SkipBuild, [switch]$SkipE2E, [string]$ProjectName = 'hotel-reservation-system-test')
+if ($ProjectName -notmatch '^hotel-reservation-system-test(?:-[a-z0-9-]+)?$') { throw 'Invalid isolated project name' }
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 Set-Location -LiteralPath $root
-$compose = @('compose', '-p', 'hotel-reservation-system-test', '--env-file', 'tests/isolated/empty.env', '-f', 'compose.test.yaml')
+$compose = @('compose', '-p', $ProjectName, '--env-file', 'tests/isolated/empty.env', '-f', 'compose.test.yaml')
 $report = Join-Path $root ('.local/isolated/' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
 New-Item -ItemType Directory -Force -Path $report | Out-Null
 # Create bind-mount parents as the invoking user before Docker can create them as root.
@@ -23,7 +24,7 @@ function Invoke-Check {
 $configJson = & docker @compose config --format json
 if ($LASTEXITCODE -ne 0) { throw 'Invalid Compose' }
 $config = $configJson | ConvertFrom-Json
-if ($config.name -ne 'hotel-reservation-system-test' -or -not $config.networks.isolated.internal) { throw 'Unexpected project/network' }
+if ($config.name -ne $ProjectName -or -not $config.networks.isolated.internal) { throw 'Unexpected project/network' }
 foreach ($entry in $config.services.PSObject.Properties) {
     $service = $entry.Value
     if ($service.env_file) { throw 'env_file forbidden' }
@@ -38,7 +39,7 @@ foreach ($entry in $config.services.PSObject.Properties) {
         if ($mount.type -ne 'bind' -or (-not $reportMount -and (-not $mount.read_only -or $mount.target -ne '/checks'))) { throw 'Unexpected mount' }
     }
 }
-$existing = & docker ps -aq --filter 'label=com.docker.compose.project=hotel-reservation-system-test'
+$existing = & docker ps -aq --filter "label=com.docker.compose.project=$ProjectName"
 if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect Docker' }
 if ($existing) { throw 'Existing test resources: inspect them and remove only this project before starting a fresh run. See README.' }
 if (-not $SkipBuild) {
@@ -47,14 +48,14 @@ if (-not $SkipBuild) {
     $null = Invoke-Check 'images' $buildServices
 }
 $null = Invoke-Check 'postgres-start' @('up', '-d', '--wait', 'postgres-test')
-$runtimeJson = & docker inspect hotel-reservation-system-test-postgres-test-1
+$runtimeJson = & docker inspect "${ProjectName}-postgres-test-1"
 if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect test PostgreSQL' }
 $runtime = ($runtimeJson | ConvertFrom-Json)[0]
 if ($runtime.HostConfig.PortBindings.PSObject.Properties.Count -gt 0) { throw 'Unexpected published PostgreSQL port' }
 if (-not $runtime.HostConfig.Tmpfs.'/var/lib/postgresql/data') {
     if (@($runtime.HostConfig.Tmpfs.PSObject.Properties.Name) -notcontains '/var/lib/postgresql/data') { throw 'Missing tmpfs' }
 }
-if ((@($runtime.NetworkSettings.Networks.PSObject.Properties.Name) -join ',') -ne 'hotel-reservation-system-test_isolated') { throw 'Unexpected runtime network' }
+if ((@($runtime.NetworkSettings.Networks.PSObject.Properties.Name) -join ',') -ne "${ProjectName}_isolated") { throw 'Unexpected runtime network' }
 foreach ($mount in $runtime.Mounts) {
     if ($mount.Type -ne 'bind' -or $mount.RW -or $mount.Destination -ne '/checks') { throw 'Unexpected PostgreSQL mount' }
 }
@@ -74,6 +75,12 @@ foreach ($db in @('hotel_test', 'hotel_adopt')) {
     $null = Invoke-Check "validate-$db" @('run', '--rm', '--no-deps', 'flyway-check', $db, 'validate')
 }
 $null = Invoke-Check 'schema-data-comparison-v2' @('exec', '-T', 'postgres-test', 'sh', '/checks/schema/compare-v2.sh')
+$null = Invoke-Check 'hu05-lineage-init' @('run', '--rm', '--no-deps', 'flyway-check', 'hotel_hu05', 'legacy-init')
+$null = Invoke-Check 'hu05-lineage-fixture' @('exec', '-T', 'postgres-test', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'hotel_test', '-d', 'hotel_hu05', '-f', '/checks/schema/hu05-lineage-before.sql')
+foreach ($action in @('legacy-migrate', 'legacy-migrate', 'legacy-validate')) {
+    $null = Invoke-Check "hu05-lineage-$action" @('run', '--rm', '--no-deps', 'flyway-check', 'hotel_hu05', $action)
+}
+$null = Invoke-Check 'hu05-lineage-preservation' @('exec', '-T', 'postgres-test', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'hotel_test', '-d', 'hotel_hu05', '-f', '/checks/schema/hu05-lineage-after.sql')
 $null = Invoke-Check 'clean-application-bootstrap' @('run', '--rm', '--no-deps', 'bootstrap-check')
 $blocked = Invoke-Check 'backend-wrong-db' @('run', '--rm', '--no-deps', '-e', 'SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/hotel-bd', 'backend-check') -AllowFailure
 if ($blocked -ne 64 -or -not (Select-String -LiteralPath (Join-Path $report 'backend-wrong-db.log') -Pattern 'ISOLATED_DATASOURCE_REJECTED' -Quiet)) { throw 'Backend URL guard did not reject as expected' }

@@ -6,6 +6,7 @@ psql -X -v ON_ERROR_STOP=1 -U hotel_test -d hotel_test -c 'SELECT current_databa
 createdb -U hotel_test hotel_legacy
 createdb -U hotel_test hotel_adopt
 createdb -U hotel_test hotel_demo
+createdb -U hotel_test hotel_hu05
 for db in hotel_legacy hotel_adopt; do
   sed '/^CREATE SCHEMA public;$/d' /checks/schema/legacy.sql | psql -X -v ON_ERROR_STOP=1 -U hotel_test -d "$db"
 done
