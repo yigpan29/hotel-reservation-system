@@ -99,4 +99,4 @@ if (-not $SkipE2E) {
     $null = Invoke-Check 'hu05-reminder-scenario' @('exec', '-T', 'postgres-test', 'sh', '/checks/schema/notifications-demo.sh')
     $null = Invoke-Check 'playwright' @('run', '--rm', '--no-deps', '-e', ('PLAYWRIGHT_REPORT_DIR=/reports/' + (Split-Path $report -Leaf)), 'e2e')
 }
-Write-Host 'All requested checks passed. Demo: http://127.0.0.1:$FrontendPort (test resources only).'
+Write-Host "All requested checks passed. Demo: http://127.0.0.1:$FrontendPort (test resources only)."

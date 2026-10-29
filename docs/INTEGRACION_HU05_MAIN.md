@@ -30,3 +30,29 @@ Los resultados efectivos de pruebas, merges y validación de desarrollo se regis
 Maven clean verify: 68 pruebas sin fallos; dos pruebas adicionales de Flyway/Boot/Hibernate sobre linajes canónico y HU-05 antiguo: satisfactorias. TypeScript, ESLint, 114 pruebas Vitest y Vite build: satisfactorios. Chromium: 12 escenarios de regresión aprobados y un fallo de sincronización en el test de recordatorio; el test corregido se repitió contra el mismo PostgreSQL y pasó (1/1), conservando la comprobación de unicidad y la vista real. La captura del fallo ya mostraba el recordatorio; el problema era contar inmediatamente después de iniciar la carga.
 
 Se conserva evidencia de los intentos iniciales: conteo antiguo de migraciones en una aserción, entorno de pruebas reutilizado con datos de demo y carrera de refresco en Playwright. No se eliminó ninguna validación funcional. La secuencia de migraciones se comprueba exactamente V1-V7.
+
+## Resolución con main y conservación visual
+
+Se revisaron individualmente los conflictos de App.tsx, Header.tsx, ReservationList.tsx, App.css eliminado, el guardián HU-03, la versión esperada en las pruebas y la documentación/API. Se conservaron ambos bloques de documentación y las protecciones de notificaciones y pagos; no se eligió una rama completa como resolución.
+
+| Before | After | Why |
+| --- | --- | --- |
+| Encabezado antiguo de HU-05 | NavLink con contador en encabezado y menú móvil del PR #17 | Mantener una sola navegación coherente |
+| CSS antiguo de notificaciones | Button, Badge, Notice, Loading y tokens actuales | Conservar tipografía, estados, colores y controles del rediseño |
+| Fechas legacy leídas sin comprobar NULL | Tarjetas actuales con fechas opcionales y texto de ausencia | Abrir reservas antiguas sin inventar fechas ni romper la vista |
+| Checkout creaba reservas fuera del servicio HU-05 | Aviso transaccional tras cada reserva de checkout simple/conjunto | Confirmación y reintentos sin duplicar avisos |
+
+Capturas reales de Chromium con datos exclusivamente sintéticos: [escritorio](evidencias/integracion-main/hu05-confirmation-counter.png), [móvil](evidencias/integracion-main/hu05-mobile-pagination.png).
+
+La primera suite completa integrada pasó Maven clean verify (123/123), dos pruebas de Flyway/Boot/Hibernate, TypeScript/ESLint/Vitest/build y Chromium (17/17). Los pagos externos se prueban con dobles deterministas y los flujos de UI con respuestas controladas: no se afirma una transacción real Stripe. El checkout sandbox conserva su configuración opt-in existente; no hay credenciales sandbox locales configuradas en esta intervención.
+
+## Procedimiento reproducible para hotel-bd
+
+Después de validar el SQL en PostgreSQL aislado y con el código final incorporado a main:
+
+```powershell
+./scripts/upgrade-hu05-development.ps1          # Solo verifica destino y muestra plan
+./scripts/upgrade-hu05-development.ps1 -Apply   # Operación aditiva autorizada
+```
+
+El script rechaza otro destino/linaje, compara huellas y secuencias, compila, inicia solo backend con el overlay explícito legacy, espera salud 200/UP, compara los datos originales y vuelve a iniciar con compose.yaml ordinario (Flyway desactivado). No crea respaldo ni modifica credenciales o historial aplicado. El programador se desactiva únicamente durante la comparación para que los eventos nuevos no alteren las huellas verificadas. No depende de scripts privados sin versionar.
