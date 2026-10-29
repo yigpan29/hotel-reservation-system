@@ -173,3 +173,16 @@ reservas del hotel/período consultado. Forecast considera entrenamiento y horiz
 sin duplicar reservas. No se expone identidad del propietario ni datos personales.
 No existe endpoint HTTP para cargar o revertir lotes. Véase
 [Historial sintético HU-03](HU03_HISTORIAL_SINTETICO.md).
+
+## Notificaciones privadas HU-05
+
+GET /api/notifications?page=0&size=20 devuelve PageView del usuario autenticado,
+ordenado por createdAt e id descendentes. GET /api/notifications/unread-count
+responde {unreadCount}. POST /api/notifications/{id}/read y POST
+/api/notifications/read-all requieren sesión y CSRF, responden 204 y son idempotentes.
+No aceptan userId ni permiten a ADMIN leer avisos ajenos: esos IDs devuelven 404.
+DTO: id, reservationId, type, hotelName, startDate, endDate, message, createdAt,
+read y readAt. endDate puede ser nulo únicamente al notificar una cancelación
+legacy; no se inventan fechas. Tipos CONFIRMED, CANCELLED y CHECK_IN_REMINDER.
+No hay endpoints de generación, borrado o administración de avisos privados.
+Véase [HU05_NOTIFICACIONES.md](HU05_NOTIFICACIONES.md).

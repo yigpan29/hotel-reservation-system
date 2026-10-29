@@ -20,6 +20,16 @@ class DemandHistoryBatchTests {
     DemandHistoryBatchService.Options options(String code){return new DemandHistoryBatchService.Options(code,reference,73003L,12);}
     DemandHistoryBatchService.Result create(String code){return batches.create(options(code),"hotel_test","CREATE_HISTORY_BATCH");}
     String existing(){return jdbc.queryForObject("select md5(to_jsonb(u)::text) from users u where id=?",String.class,owner);}
+    @Test void legacyHashesSurviveNullableSchemaExpansionAndStillDetectEdits(){
+        create("batch-old-schema");
+        jdbc.update("update reservation_demo_items i set original_row_hash=md5((to_jsonb(r)-'adults'-'children'-'room_type')::text) from reservations r where r.id=i.reservation_id");
+        assertThat(batches.inspect("batch-old-schema","hotel_test","INSPECT_HISTORY_BATCH").modifiedRows()).isZero();
+        Long id=jdbc.queryForObject("select min(reservation_id) from reservation_demo_items",Long.class);
+        jdbc.update("update reservations set room_type='Changed' where id=?",id);
+        assertThat(batches.inspect("batch-old-schema","hotel_test","INSPECT_HISTORY_BATCH").modifiedRows()).isEqualTo(1);
+        jdbc.update("update reservations set room_type=null,total_price=total_price+1 where id=?",id);
+        assertThat(batches.inspect("batch-old-schema","hotel_test","INSPECT_HISTORY_BATCH").modifiedRows()).isEqualTo(1);
+    }
     @Test void coherentNonOverlappingPricesChronologyIdempotenceAndUserOwnership(){
         String before=existing();var first=create("batch-integrity-test");assertThat(first.reservations()).isBetween(80L,250L);assertThat(first.hotels()).isEqualTo(2);assertThat(first.confirmed()).isPositive();assertThat(first.cancelled()).isPositive();assertThat(first.modifiedRows()).isZero();
         assertThat(jdbc.queryForObject("select count(*) from reservations a join reservations b on a.room_id=b.room_id and a.id<b.id and a.status='CONFIRMED' and b.status='CONFIRMED' and a.start_date<b.end_date and a.end_date>b.start_date",Long.class)).isZero();
@@ -40,6 +50,9 @@ class DemandHistoryBatchTests {
         String before=existing();var created=create("batch-reversal-test");
         assertThatThrownBy(()->batches.revert("batch-reversal-test","hotel_test","yes")).isInstanceOf(IllegalStateException.class);
         Long id=jdbc.queryForObject("select min(reservation_id) from reservation_demo_items",Long.class);
+        jdbc.update("insert into reservation_notifications(user_id,reservation_id,type,hotel_name,start_date,end_date,message,created_at) select user_id,id,'CONFIRMED','Synthetic',start_date::date,end_date::date,'Controlled dependency test',current_timestamp from reservations where id=?",id);
+        assertThatThrownBy(()->batches.revert("batch-reversal-test","hotel_test","REVERT_HISTORY_BATCH:batch-reversal-test")).isInstanceOf(IllegalStateException.class).hasMessageContaining("dependencias");
+        jdbc.update("delete from reservation_notifications where reservation_id=?",id);
         jdbc.update("insert into payments(reservation_id,amount,status) values (?,0,'SYNTHETIC_TEST')",id);
         assertThatThrownBy(()->batches.revert("batch-reversal-test","hotel_test","REVERT_HISTORY_BATCH:batch-reversal-test")).isInstanceOf(IllegalStateException.class).hasMessageContaining("dependencias");
         jdbc.update("delete from payments where reservation_id=?",id);

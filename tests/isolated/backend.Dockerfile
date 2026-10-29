@@ -13,4 +13,5 @@ RUN mvn -B -ntp -DskipTests package \
     && mvn -B -ntp dependency:get -Dartifact=org.junit.platform:junit-platform-launcher:1.10.3
 COPY hotel-reservation-system-backend/src/main/resources/db/migration /checks/migrations
 COPY tests/isolated/IsolatedFlywayCompatibilityTests.java /checks/IsolatedFlywayCompatibilityTests.java
+COPY tests/isolated/LegacyHu05CompatibilityTests.java /checks/LegacyHu05CompatibilityTests.java
 COPY tests/isolated/bootstrap-check.sh /checks/bootstrap-check.sh

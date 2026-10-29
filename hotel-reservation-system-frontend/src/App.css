@@ -5,4 +5,6 @@
   .action { @apply bg-orange-600 text-white rounded px-5 py-2 hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed; }
   .notice-error { @apply my-4 rounded border border-red-200 bg-red-50 text-red-800 p-4; }
   .notice-success { @apply my-4 rounded border border-green-200 bg-green-50 text-green-800 p-4; }
+  .panel.notification-unread { @apply border-l-4 border-l-orange-600 bg-orange-50; }
+  .panel.notification-read { @apply border-l-4 border-l-gray-300; }
 button:disabled { opacity: .5; cursor: not-allowed; }

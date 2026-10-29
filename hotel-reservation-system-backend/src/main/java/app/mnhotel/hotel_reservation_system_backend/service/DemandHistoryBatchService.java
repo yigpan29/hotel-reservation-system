@@ -98,7 +98,9 @@ public class DemandHistoryBatchService {
             select b.code,b.status,b.reference_date,b.history_start,b.history_end,b.reservation_count,
                 count(r.id) filter(where r.status='CONFIRMED') confirmed,count(r.id) filter(where r.status='CANCELLED') cancelled,
                 coalesce(sum(r.end_date::date-r.start_date::date) filter(where r.status='CONFIRMED'),0) nights,
-                count(distinct rm.hotel_id) hotels,count(r.id) filter(where md5(to_jsonb(r)::text)<>i.original_row_hash) modified
+                count(distinct rm.hotel_id) hotels,count(r.id) filter(where md5(to_jsonb(r)::text)<>i.original_row_hash
+                    and not (r.adults is null and r.children is null and r.room_type is null
+                        and md5((to_jsonb(r)-'adults'-'children'-'room_type')::text)=i.original_row_hash)) modified
             from reservation_demo_batches b left join reservation_demo_items i on i.batch_id=b.id left join reservations r on r.id=i.reservation_id left join rooms rm on rm.id=r.room_id
             where b.code=? group by b.id
             """,code);
@@ -115,9 +117,10 @@ public class DemandHistoryBatchService {
         if(current!=summary.reservations()||summary.modifiedRows()!=0)throw new IllegalStateException("El lote fue modificado; reversión rechazada");
         String hash=jdbc.queryForObject("select md5(to_jsonb(u)::text) from users u where id=? for update",String.class,user);
         if(!hash.equals(batch.get("technical_user_hash")))throw new IllegalStateException("La cuenta técnica fue modificada; reversión rechazada");
-        Long dependencies=jdbc.queryForObject("select (select count(*) from payments p join reservation_demo_items i on i.reservation_id=p.reservation_id where i.batch_id=?) + (select count(*) from reviews where user_id=?) + (select count(*) from reservations r where r.user_id=? and not exists(select 1 from reservation_demo_items i where i.reservation_id=r.id and i.batch_id=?))",Long.class,id,user,user,id);
+        Long dependencies=jdbc.queryForObject("select (select count(*) from payments p join reservation_demo_items i on i.reservation_id=p.reservation_id where i.batch_id=?) + (select count(*) from reservation_notifications n join reservation_demo_items i on i.reservation_id=n.reservation_id where i.batch_id=?) + (select count(*) from reviews where user_id=?) + (select count(*) from reservations r where r.user_id=? and not exists(select 1 from reservation_demo_items i where i.reservation_id=r.id and i.batch_id=?))",Long.class,id,id,user,user,id);
+        dependencies+=jdbc.queryForObject("select count(*) from reservation_notifications where user_id=?",Long.class,user);
         if(dependencies>0)throw new IllegalStateException("Existen dependencias externas; reversión rechazada");
-        var unknown=jdbc.queryForList("select conname from pg_constraint where contype='f' and ((confrelid='reservations'::regclass and conrelid not in ('payments'::regclass,'reservation_demo_items'::regclass)) or (confrelid='users'::regclass and conrelid not in ('reservations'::regclass,'reviews'::regclass,'reservation_demo_batches'::regclass)))");
+        var unknown=jdbc.queryForList("select conname from pg_constraint where contype='f' and ((confrelid='reservations'::regclass and conrelid not in ('payments'::regclass,'reservation_demo_items'::regclass,'reservation_notifications'::regclass)) or (confrelid='users'::regclass and conrelid not in ('reservations'::regclass,'reviews'::regclass,'reservation_demo_batches'::regclass,'reservation_notifications'::regclass)))");
         if(!unknown.isEmpty())throw new IllegalStateException("Hay relaciones externas no contempladas; revisión requerida");
         var ids=jdbc.queryForList("delete from reservation_demo_items where batch_id=? returning reservation_id",Long.class,id);
         for(Long reservation:ids)jdbc.update("delete from reservations where id=?",reservation);
