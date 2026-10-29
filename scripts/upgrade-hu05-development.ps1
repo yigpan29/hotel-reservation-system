@@ -47,7 +47,7 @@ $beforeSequences = Read-Database $sequences
 New-Item -ItemType Directory -Force .local | Out-Null
 $before | Set-Content -LiteralPath .local/integration-original-fingerprints.txt
 
-docker compose run --rm --no-deps backend mvn -B -ntp -DskipTests package
+docker compose run --rm --no-deps backend mvn -B -ntp -DskipTests clean package
 if ($LASTEXITCODE -ne 0) { throw 'Compilation failed; database has not been migrated' }
 docker compose -f compose.yaml -f compose.legacy-hu05.yaml up -d --no-deps --force-recreate backend
 if ($LASTEXITCODE -ne 0) { throw 'Migration startup failed' }
